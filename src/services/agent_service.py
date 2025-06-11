@@ -22,11 +22,16 @@ class AgentService:
                 "markdown": "Your markdown document here"
             }}
             
+            The "response" field MUST contain your conversational response to the user, including any clarifying questions.
+            The "markdown" field MUST contain the formatted markdown document.
+            
             Example of a valid response:
             {{
                 "response": "I understand you want to implement user authentication. Could you clarify: 1) What authentication methods do you want to support? 2) Do you need social login integration?",
                 "markdown": "# User Authentication\\n\\n## Feature\\nImplement user authentication system\\n\\n## Details\\n- Authentication methods to be determined\\n- Social login integration to be determined\\n\\n## Pending Questions\\n1. What authentication methods do you want to support?\\n2. Do you need social login integration?"
-            }}"""),
+            }}
+            
+            NEVER leave the "response" field empty. Always provide a conversational response."""),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}")
         ])
@@ -59,20 +64,20 @@ class AgentService:
                 content = content[start:end]
             
             output = json.loads(content)
+            
+            chat_history.append(HumanMessage(content=feature))
+            chat_history.append(AIMessage(content=json.dumps(output)))
+            
+            if len(chat_history) > settings.MAX_HISTORY_LENGTH:
+                chat_history = chat_history[-settings.MAX_HISTORY_LENGTH:]
+            
+            self.sessions[session_id] = chat_history
+            
+            return session_id, output["response"], output["markdown"]
         except json.JSONDecodeError as e:
             print(f"JSON parsing error: {e}")
             print(f"Failed to parse content: {content}")
             raise ValueError(f"Failed to parse model response as JSON: {str(e)}")
-        
-        chat_history.append(HumanMessage(content=feature))
-        chat_history.append(AIMessage(content=json.dumps(output)))
-        
-        if len(chat_history) > settings.MAX_HISTORY_LENGTH:
-            chat_history = chat_history[-settings.MAX_HISTORY_LENGTH:]
-        
-        self.sessions[session_id] = chat_history
-        
-        return session_id, output["response"], output["markdown"]
 
     def clear_session(self, session_id: str) -> bool:
         if session_id in self.sessions:
