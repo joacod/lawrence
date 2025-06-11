@@ -19,10 +19,14 @@ prompt = ChatPromptTemplate.from_messages([
     1. Analyze the feature and, if vague, ask up to 3 specific clarifying questions.
     2. Update a Markdown document with the provided information, including 'Feature', 'Details', and 'Pending Questions' sections.
     3. Maintain conversation context for iterative refinement.
-    Respond in JSON with:
-    - 'response': Text with your response or questions.
-    - 'markdown': Updated Markdown document.
-    If the feature is clear, confirm and update the Markdown without questions."""),
+    
+    You MUST respond with a valid JSON object in the following format:
+    {{
+        "response": "Your response text or questions here",
+        "markdown": "Your markdown document here"
+    }}
+    
+    Do not include any text before or after the JSON object. The response must be a single valid JSON object."""),
     MessagesPlaceholder(variable_name="chat_history"),
     ("human", "{input}")
 ])
@@ -68,9 +72,20 @@ async def process_feature(input: FeatureInput):
             "input": input.feature
         })
         
+        # Debug print to see what we're getting from the model
+        print(f"Raw model response: {result.content}")
+        
         # Parse response (assumes Ollama returns valid JSON)
         import json
-        output = json.loads(result.content)
+        try:
+            output = json.loads(result.content)
+        except json.JSONDecodeError as e:
+            print(f"JSON parsing error: {e}")
+            print(f"Failed to parse content: {result.content}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to parse model response as JSON: {str(e)}"
+            )
         
         # Update history
         chat_history.append(HumanMessage(content=input.feature))
@@ -90,6 +105,7 @@ async def process_feature(input: FeatureInput):
         )
     
     except Exception as e:
+        print(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Endpoint to clear session (optional)
