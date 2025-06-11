@@ -43,6 +43,11 @@ class AgentOutput(BaseModel):
     response: str
     markdown: str
 
+# Endpoint to check health of the service
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "AI Product Owner Agent"}
+
 # Endpoint to process feature input
 @app.post("/process_feature", response_model=AgentOutput)
 async def process_feature(input: FeatureInput):
