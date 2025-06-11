@@ -48,7 +48,7 @@ pip install -r requirements.txt
 ### 4. Run the Service
 
 ```bash
-python src/main.py
+python -m src.main
 ```
 
 **What it does**: Starts the FastAPI server on `http://localhost:8000`.
