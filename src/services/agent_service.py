@@ -66,8 +66,42 @@ class AgentService:
             logger.info("Model raw response:")
             logger.info(result.content)
             
-            # Parse the response into JSON
-            output = parse_response_to_json(result.content)
+            try:
+                # Try to parse the response into JSON
+                output = parse_response_to_json(result.content)
+            except ValueError as e:
+                # If parsing fails, log the error and raw response for debugging
+                logger.error("First attempt failed to parse response:")
+                logger.error(f"Error: {str(e)}")
+                logger.error("Raw response that failed to parse:")
+                logger.error("---START OF FAILED RESPONSE---")
+                logger.error(result.content)
+                logger.error("---END OF FAILED RESPONSE---")
+                
+                # Retry with a more explicit prompt
+                logger.info("Retrying with explicit format reminder")
+                retry_prompt = f"""Please provide your response in the exact format specified:
+
+RESPONSE:
+[Your conversational response here]
+
+MARKDOWN:
+```
+[Your markdown content here]
+```
+
+Previous response that needs to be reformatted:
+{result.content}"""
+                
+                retry_result = await self.chain.ainvoke({
+                    "chat_history": chat_history,
+                    "input": retry_prompt
+                })
+                logger.info("Retry model response:")
+                logger.info(retry_result.content)
+                
+                # Try parsing the retry response
+                output = parse_response_to_json(retry_result.content)
             
             # Update chat history
             chat_history.append(HumanMessage(content=feature))
