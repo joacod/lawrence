@@ -2,14 +2,21 @@ from typing import Dict, List
 import json
 import uuid
 import logging
+import sys
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_ollama.chat_models import ChatOllama
 from src.config.settings import settings
 from src.utils.response_parser import parse_response_to_json
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging with immediate console output
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 logger = logging.getLogger(__name__)
 
 class AgentService:
@@ -71,8 +78,7 @@ class AgentService:
                 output = parse_response_to_json(result.content)
             except ValueError as e:
                 # If parsing fails, log the error and raw response for debugging
-                logger.error("First attempt failed to parse response:")
-                logger.error(f"Error: {str(e)}")
+                logger.error("Failed to parse response:", exc_info=True)
                 logger.error("Raw response that failed to parse:")
                 logger.error("---START OF FAILED RESPONSE---")
                 logger.error(result.content)
@@ -101,7 +107,15 @@ Previous response that needs to be reformatted:
                 logger.info(retry_result.content)
                 
                 # Try parsing the retry response
-                output = parse_response_to_json(retry_result.content)
+                try:
+                    output = parse_response_to_json(retry_result.content)
+                except ValueError as e:
+                    logger.error("Failed to parse retry response:", exc_info=True)
+                    logger.error("Raw retry response that failed to parse:")
+                    logger.error("---START OF FAILED RETRY RESPONSE---")
+                    logger.error(retry_result.content)
+                    logger.error("---END OF FAILED RETRY RESPONSE---")
+                    raise
             
             # Update chat history
             chat_history.append(HumanMessage(content=feature))
@@ -115,8 +129,9 @@ Previous response that needs to be reformatted:
             return session_id, output["response"], output["markdown"]
             
         except Exception as e:
-            logger.error(f"Error in process_feature: {str(e)}")
-            logger.error("Full error details:", exc_info=True)
+            logger.error("Error in process_feature:", exc_info=True)
+            logger.error(f"Session ID: {session_id}")
+            logger.error(f"Feature input: {feature}")
             raise
 
     def clear_session(self, session_id: str) -> bool:
