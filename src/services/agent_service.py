@@ -34,18 +34,13 @@ class AgentService:
             [Your conversational response to the user, including any clarifying questions]
 
             MARKDOWN:
-            ```
-            Feature: [Feature Name]
-            ================
+            # Feature: [Feature Name]
 
-            Details
-            --------
+            ## Details
             [Feature details]
 
-            Pending Questions
-            ----------------
+            ## Pending Questions
             [List of questions]
-            ```
 
             IMPORTANT: Do not add any text before RESPONSE or after the markdown section. Do not include any conversational elements or additional explanations."""),
             MessagesPlaceholder(variable_name="chat_history"),
@@ -92,9 +87,7 @@ RESPONSE:
 [Your conversational response here]
 
 MARKDOWN:
-```
 [Your markdown content here]
-```
 
 Previous response that needs to be reformatted:
 {result.content}"""
