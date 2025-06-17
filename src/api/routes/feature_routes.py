@@ -13,13 +13,14 @@ async def health_check():
 @router.post("/process_feature", response_model=AgentOutput)
 async def process_feature(input: FeatureInput):
     try:
-        session_id, response, markdown = await agent_service.process_feature(
+        session_id, response, markdown, questions = await agent_service.process_feature(
             feature=input.feature,
             session_id=input.session_id
         )
         return AgentOutput(
             session_id=session_id,
             response=response,
+            questions=questions,
             markdown=markdown
         )
     except ValueError as e:

@@ -31,18 +31,32 @@ class AgentService:
             2. Your response MUST follow this exact format with no additional text before or after:
             
             RESPONSE:
-            [Your conversational response to the user, including any clarifying questions]
+            [Your conversational response to the user - DO NOT include any questions here]
+
+            PENDING QUESTIONS:
+            [List your clarifying questions here, one per line starting with -]
 
             MARKDOWN:
             # Feature: [Feature Name]
 
-            ## Details
-            [Feature details]
+            ## Description
+            [Detailed description of the feature and its purpose]
 
-            ## Pending Questions
-            [List of questions]
+            ## Acceptance Criteria
+            [List of specific, testable criteria that define when the feature is complete]
 
-            IMPORTANT: Do not add any text before RESPONSE or after the markdown section. Do not include any conversational elements or additional explanations."""),
+            ## Backend Changes
+            [List of required backend changes, or "No changes needed" if none required]
+
+            ## Frontend Changes
+            [List of required frontend changes, or "No changes needed" if none required]
+
+            IMPORTANT: 
+            - Do not add any text before RESPONSE or after the markdown section
+            - Do not include any conversational elements or additional explanations
+            - Keep the RESPONSE conversational but without questions
+            - Put ALL clarifying questions in the PENDING QUESTIONS section only
+            - Use only - for bullet points in PENDING QUESTIONS"""),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}")
         ])
@@ -50,7 +64,7 @@ class AgentService:
         self.chain = self.prompt | self.llm
         self.sessions: Dict[str, List] = {}
 
-    async def process_feature(self, feature: str, session_id: str | None = None) -> tuple[str, str, str]:
+    async def process_feature(self, feature: str, session_id: str | None = None) -> tuple[str, str, str, list[str]]:
         session_id = session_id or str(uuid.uuid4())
         
         if session_id not in self.sessions:
@@ -86,6 +100,9 @@ class AgentService:
 RESPONSE:
 [Your conversational response here]
 
+PENDING QUESTIONS:
+[Your questions here]
+
 MARKDOWN:
 [Your markdown content here]
 
@@ -119,7 +136,7 @@ Previous response that needs to be reformatted:
             
             self.sessions[session_id] = chat_history
             
-            return session_id, output["response"], output["markdown"]
+            return session_id, output["response"], output["markdown"], output["questions"]
             
         except Exception as e:
             logger.error("Error in process_feature:", exc_info=True)
