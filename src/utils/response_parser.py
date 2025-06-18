@@ -37,7 +37,12 @@ def extract_questions(text: str) -> List[str]:
             # Split by bullet points and clean up
             questions = []
             for line in questions_text.split('\n'):
-                line = line.strip('* ').strip()
+                # Remove both * and - bullet points and clean up whitespace
+                line = line.strip()
+                if line.startswith('- '):
+                    line = line[2:].strip()
+                elif line.startswith('* '):
+                    line = line[2:].strip()
                 if line:
                     questions.append(line)
             return questions

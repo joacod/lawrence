@@ -7,6 +7,7 @@ class FeatureInput(BaseModel):
 
 class AgentOutput(BaseModel):
     session_id: str
+    title: str
     response: str
     questions: List[str]
     markdown: str

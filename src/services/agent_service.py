@@ -63,8 +63,9 @@ class AgentService:
         
         self.chain = self.prompt | self.llm
         self.sessions: Dict[str, List] = {}
+        self.session_titles: Dict[str, str] = {}
 
-    async def process_feature(self, feature: str, session_id: str | None = None) -> tuple[str, str, str, list[str]]:
+    async def process_feature(self, feature: str, session_id: str | None = None) -> tuple[str, str, str, str, list[str]]:
         session_id = session_id or str(uuid.uuid4())
         
         if session_id not in self.sessions:
@@ -127,6 +128,23 @@ Previous response that needs to be reformatted:
                     logger.error("---END OF FAILED RETRY RESPONSE---")
                     raise
             
+            # Extract title from markdown if this is a new session
+            title = ""
+            if session_id not in self.session_titles:
+                # Extract title from the first line of markdown (should be "# Feature: [Title]")
+                markdown_lines = output["markdown"].split('\n')
+                for line in markdown_lines:
+                    if line.startswith('# Feature:'):
+                        title = line.replace('# Feature:', '').strip()
+                        break
+                # If no title found in markdown, use a default
+                if not title:
+                    title = "Untitled Feature"
+                self.session_titles[session_id] = title
+            else:
+                # Use existing title for this session
+                title = self.session_titles[session_id]
+            
             # Update chat history
             chat_history.append(HumanMessage(content=feature))
             chat_history.append(AIMessage(content=json.dumps(output)))
@@ -136,7 +154,7 @@ Previous response that needs to be reformatted:
             
             self.sessions[session_id] = chat_history
             
-            return session_id, output["response"], output["markdown"], output["questions"]
+            return session_id, title, output["response"], output["markdown"], output["questions"]
             
         except Exception as e:
             logger.error("Error in process_feature:", exc_info=True)
@@ -147,5 +165,7 @@ Previous response that needs to be reformatted:
     def clear_session(self, session_id: str) -> bool:
         if session_id in self.sessions:
             del self.sessions[session_id]
+            if session_id in self.session_titles:
+                del self.session_titles[session_id]
             return True
         return False 
