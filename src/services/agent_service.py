@@ -3,6 +3,7 @@ import json
 import uuid
 import logging
 import sys
+from datetime import datetime, timezone
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_ollama.chat_models import ChatOllama
@@ -64,9 +65,26 @@ class AgentService:
         self.chain = self.prompt | self.llm
         self.sessions: Dict[str, List] = {}
         self.session_titles: Dict[str, str] = {}
+        self.session_timestamps: Dict[str, Dict[str, datetime]] = {}
 
-    async def process_feature(self, feature: str, session_id: str | None = None) -> tuple[str, str, str, str, list[str]]:
+    async def process_feature(self, feature: str, session_id: str | None = None) -> tuple[str, str, str, str, list[str], datetime, datetime]:
         session_id = session_id or str(uuid.uuid4())
+        current_time = datetime.now(timezone.utc)
+        
+        # Handle timestamps
+        if session_id not in self.session_timestamps:
+            # New session - set both created_at and updated_at
+            self.session_timestamps[session_id] = {
+                "created_at": current_time,
+                "updated_at": current_time
+            }
+            created_at = current_time
+            updated_at = current_time
+        else:
+            # Existing session - update only updated_at, keep original created_at
+            self.session_timestamps[session_id]["updated_at"] = current_time
+            created_at = self.session_timestamps[session_id]["created_at"]
+            updated_at = current_time
         
         if session_id not in self.sessions:
             self.sessions[session_id] = []
@@ -154,7 +172,7 @@ Previous response that needs to be reformatted:
             
             self.sessions[session_id] = chat_history
             
-            return session_id, title, output["response"], output["markdown"], output["questions"]
+            return session_id, title, output["response"], output["markdown"], output["questions"], created_at, updated_at
             
         except Exception as e:
             logger.error("Error in process_feature:", exc_info=True)
@@ -167,5 +185,7 @@ Previous response that needs to be reformatted:
             del self.sessions[session_id]
             if session_id in self.session_titles:
                 del self.session_titles[session_id]
+            if session_id in self.session_timestamps:
+                del self.session_timestamps[session_id]
             return True
         return False 
