@@ -149,12 +149,23 @@ Previous response that needs to be reformatted:
             # Extract title from markdown if this is a new session
             title = ""
             if session_id not in self.session_titles:
-                # Extract title from the first line of markdown (should be "# Feature: [Title]")
+                # Extract title from the first line of markdown
                 markdown_lines = output["markdown"].split('\n')
                 for line in markdown_lines:
+                    line = line.strip()
+                    # Look for various markdown header formats
                     if line.startswith('# Feature:'):
                         title = line.replace('# Feature:', '').strip()
                         break
+                    elif line.startswith('# '):
+                        # Extract title from any # header (most common case)
+                        title = line.replace('# ', '').strip()
+                        break
+                    elif line.startswith('## '):
+                        # If no # header found, try ## header
+                        title = line.replace('## ', '').strip()
+                        break
+                
                 # If no title found in markdown, use a default
                 if not title:
                     title = "Untitled Feature"
