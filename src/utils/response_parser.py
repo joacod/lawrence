@@ -91,7 +91,7 @@ def parse_response_to_json(text: str) -> Dict[str, Union[str, List[str]]]:
     questions = extract_questions(text)
     
     # Split the text into sections
-    sections = re.split(r'(?:^|\n)(?:RESPONSE:|MARKDOWN:)', text)
+    sections = re.split(r'(?:^|\n)\s*(?:RESPONSE:|MARKDOWN:)', text)
     
     # Remove empty strings and strip whitespace
     sections = [s.strip() for s in sections if s.strip()]
