@@ -18,7 +18,7 @@ class AgentOutputData(BaseModel):
 
 class AgentOutputError(BaseModel):
     """Structure for agent errors in API"""
-    type: Literal["security_rejection", "parsing_error", "model_error"]
+    type: Literal["security_rejection", "parsing_error", "internal_server_error"]
     message: str
 
 class AgentOutput(BaseModel):

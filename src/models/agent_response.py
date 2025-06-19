@@ -14,7 +14,7 @@ class AgentSuccessData(BaseModel):
 
 class AgentError(BaseModel):
     """Structure for agent errors"""
-    type: Literal["security_rejection", "parsing_error", "model_error"]
+    type: Literal["security_rejection", "parsing_error", "internal_server_error"]
     message: str
 
 class AgentResponse(BaseModel):

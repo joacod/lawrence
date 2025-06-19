@@ -102,6 +102,10 @@ def parse_response_to_json(text: str) -> Dict[str, Union[str, List[str]]]:
     
     # Get response (remove PENDING QUESTIONS section if present)
     response = re.split(r'\nPENDING QUESTIONS:', sections[0])[0].strip()
+    
+    # Clean up response: remove "RESPONSE:" prefix if present
+    response = re.sub(r'^RESPONSE:\s*', '', response).strip()
+    
     markdown = sections[1].strip()
     
     # Create the JSON structure

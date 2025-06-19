@@ -111,41 +111,31 @@ DO NOT include any other text before or after the JSON. The response must be ONL
         Returns:
             SecurityResponse: Object containing the evaluation results
         """
+        logger.info("Security agent evaluating request")
+        result = await self.chain.ainvoke({"input": user_input})
+        
+        # Try to parse the JSON response
         try:
-            logger.info("Security agent evaluating request")
-            result = await self.chain.ainvoke({"input": user_input})
-            
-            # Try to parse the JSON response
-            try:
-                response_data = self._extract_json_from_text(result.content)
-            except Exception as e:
-                logger.error(f"Failed to parse model response: {result.content}")
-                return SecurityResponse(
-                    is_feature_request=False,
-                    confidence=1.0,
-                    reasoning="Failed to parse security evaluation response"
-                )
-            
-            # Validate required fields
-            if not all(k in response_data for k in ["is_feature_request", "confidence", "reasoning"]):
-                logger.error(f"Invalid response format: {response_data}")
-                return SecurityResponse(
-                    is_feature_request=False,
-                    confidence=1.0,
-                    reasoning="Invalid security evaluation response format"
-                )
-            
-            return SecurityResponse(
-                is_feature_request=response_data["is_feature_request"],
-                confidence=float(response_data["confidence"]),
-                reasoning=response_data["reasoning"]
-            )
-            
+            response_data = self._extract_json_from_text(result.content)
         except Exception as e:
-            logger.error("Error in security agent evaluation:", exc_info=True)
-            # Default to rejecting the request if there's an error
+            logger.error(f"Failed to parse model response: {result.content}")
             return SecurityResponse(
                 is_feature_request=False,
                 confidence=1.0,
-                reasoning="Error occurred during security evaluation"
-            ) 
+                reasoning="Failed to parse security evaluation response"
+            )
+        
+        # Validate required fields
+        if not all(k in response_data for k in ["is_feature_request", "confidence", "reasoning"]):
+            logger.error(f"Invalid response format: {response_data}")
+            return SecurityResponse(
+                is_feature_request=False,
+                confidence=1.0,
+                reasoning="Invalid security evaluation response format"
+            )
+        
+        return SecurityResponse(
+            is_feature_request=response_data["is_feature_request"],
+            confidence=float(response_data["confidence"]),
+            reasoning=response_data["reasoning"]
+        ) 

@@ -43,7 +43,7 @@ async def process_feature(input: FeatureInput):
         # This should rarely happen since AgentService now handles errors internally
         return AgentOutput(
             error=AgentOutputError(
-                type="model_error",
+                type="internal_server_error",
                 message=str(e)
             )
         )

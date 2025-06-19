@@ -66,10 +66,11 @@ class AgentService:
             
         except Exception as e:
             logger.error("Error in agent service:", exc_info=True)
+            logger.error(f"Detailed error: {str(e)}")
             return AgentResponse(
                 error=AgentError(
-                    type="model_error",
-                    message=f"An error occurred while processing your request: {str(e)}"
+                    type="internal_server_error",
+                    message="An internal error occurred. Please try again later."
                 )
             )
 
@@ -77,6 +78,9 @@ class AgentService:
         """Generate a user-friendly message for security rejections"""
         confidence = security_result.confidence
         reasoning = security_result.reasoning
+        
+        # Log the detailed reasoning for debugging
+        logger.info(f"Security rejection - Confidence: {confidence}, Reasoning: {reasoning}")
         
         if confidence > 0.8:
             message = f"I apologize, but your request doesn't appear to be related to software product features. "
