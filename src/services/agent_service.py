@@ -119,4 +119,8 @@ class AgentService:
 
     def clear_session(self, session_id: str) -> bool:
         """Clear a session from the PO agent"""
-        return self.po_agent.clear_session(session_id) 
+        return self.po_agent.clear_session(session_id)
+
+    def get_session(self, session_id: str) -> dict | None:
+        """Get session data from the PO agent"""
+        return self.po_agent.get_session_data(session_id) 

@@ -203,4 +203,47 @@ Previous response that needs to be reformatted:
             if session_id in self.session_timestamps:
                 del self.session_timestamps[session_id]
             return True
-        return False 
+        return False
+
+    def get_session_data(self, session_id: str) -> dict | None:
+        """Get all data for a specific session"""
+        if session_id not in self.sessions:
+            return None
+        
+        # Get basic session info
+        title = self.session_titles.get(session_id, "Untitled Feature")
+        timestamps = self.session_timestamps.get(session_id, {})
+        created_at = timestamps.get("created_at")
+        updated_at = timestamps.get("updated_at")
+        
+        # Get chat history
+        chat_history = self.sessions[session_id]
+        
+        # Extract the latest response data from chat history
+        latest_response = None
+        latest_markdown = None
+        latest_questions = []
+        
+        # Look for the latest AI message in chat history
+        for message in reversed(chat_history):
+            if hasattr(message, 'content') and isinstance(message.content, str):
+                try:
+                    # Try to parse the content as JSON (AI responses are stored as JSON)
+                    parsed_content = json.loads(message.content)
+                    if isinstance(parsed_content, dict):
+                        latest_response = parsed_content.get("response", "")
+                        latest_markdown = parsed_content.get("markdown", "")
+                        latest_questions = parsed_content.get("questions", [])
+                        break
+                except (json.JSONDecodeError, AttributeError):
+                    continue
+        
+        return {
+            "session_id": session_id,
+            "title": title,
+            "response": latest_response or "",
+            "markdown": latest_markdown or "",
+            "questions": latest_questions,
+            "created_at": created_at,
+            "updated_at": updated_at
+        } 

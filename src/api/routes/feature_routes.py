@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
-from src.models.schemas import FeatureInput, AgentOutput, AgentOutputData, AgentOutputError, HealthResponse
+from src.models.schemas import FeatureInput, AgentOutput, AgentOutputData, AgentOutputError, HealthResponse, SessionResponse, SessionData
 from src.services.agent_service import AgentService
 from src.config.settings import settings
 
@@ -10,6 +10,38 @@ agent_service = AgentService()
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
     return {"status": "healthy", "service": settings.APP_NAME}
+
+@router.get("/session/{session_id}", response_model=SessionResponse)
+async def get_session(session_id: str):
+    """Get a specific session by session_id"""
+    session_data = agent_service.get_session(session_id)
+    
+    if not session_data:
+        return JSONResponse(
+            status_code=404,
+            content=SessionResponse(
+                data=[],
+                error=AgentOutputError(
+                    type="not_found",
+                    message="Session not found"
+                )
+            ).model_dump()
+        )
+    
+    session = SessionData(
+        session_id=session_data["session_id"],
+        title=session_data["title"],
+        response=session_data["response"],
+        markdown=session_data["markdown"],
+        questions=session_data["questions"],
+        created_at=session_data["created_at"],
+        updated_at=session_data["updated_at"]
+    )
+    
+    return SessionResponse(
+        data=[session],
+        error=None
+    )
 
 @router.post("/process_feature", response_model=AgentOutput)
 async def process_feature(input: FeatureInput):

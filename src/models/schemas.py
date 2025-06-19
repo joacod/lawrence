@@ -6,6 +6,26 @@ class FeatureInput(BaseModel):
     session_id: Optional[str] = None
     feature: str
 
+class AgentOutputError(BaseModel):
+    """Structure for agent errors in API"""
+    type: Literal["security_rejection", "parsing_error", "internal_server_error", "not_found"]
+    message: str
+
+class SessionData(BaseModel):
+    """Structure for session data"""
+    session_id: str
+    title: str
+    response: str
+    markdown: str
+    questions: List[str]
+    created_at: datetime
+    updated_at: datetime
+
+class SessionResponse(BaseModel):
+    """Response structure for GET session endpoint"""
+    data: List[SessionData]
+    error: Optional[AgentOutputError] = None
+
 class AgentOutputData(BaseModel):
     """Structure for successful agent responses in API"""
     session_id: Optional[str] = None
@@ -15,11 +35,6 @@ class AgentOutputData(BaseModel):
     questions: List[str]
     created_at: datetime
     updated_at: datetime
-
-class AgentOutputError(BaseModel):
-    """Structure for agent errors in API"""
-    type: Literal["security_rejection", "parsing_error", "internal_server_error"]
-    message: str
 
 class AgentOutput(BaseModel):
     """API response structure"""
