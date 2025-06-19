@@ -29,7 +29,7 @@ class POAgent:
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", """You are an AI-powered Product Owner Assistant focused on clarifying software features and generating documentation. When a user describes a feature:
             1. Analyze the feature and, if vague, ask up to 3 specific clarifying questions.
-            2. Your response MUST follow this exact format with no additional text before or after:
+            2. Your response MUST follow this EXACT format with no additional text before or after:
             
             RESPONSE:
             [Your conversational response to the user - DO NOT include any questions here]
@@ -52,12 +52,16 @@ class POAgent:
             ## Frontend Changes
             [List of required frontend changes, or "No changes needed" if none required]
 
-            IMPORTANT: 
+            CRITICAL FORMAT REQUIREMENTS: 
+            - You MUST include the word "MARKDOWN:" before your markdown content
+            - You MUST include the word "RESPONSE:" before your conversational response
+            - You MUST include the words "PENDING QUESTIONS:" before your questions
             - Do not add any text before RESPONSE or after the markdown section
             - Do not include any conversational elements or additional explanations
             - Keep the RESPONSE conversational but without questions
             - Put ALL clarifying questions in the PENDING QUESTIONS section only
-            - Use only - for bullet points in PENDING QUESTIONS"""),
+            - Use only - for bullet points in PENDING QUESTIONS
+            - The MARKDOWN: section must start with "# Feature:" followed by the feature name"""),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}")
         ])
@@ -114,7 +118,7 @@ class POAgent:
                 
                 # Retry with a more explicit prompt
                 logger.info("Retrying with explicit format reminder")
-                retry_prompt = f"""Please provide your response in the exact format specified:
+                retry_prompt = f"""Please provide your response in the EXACT format specified. You MUST include all section headers:
 
 RESPONSE:
 [Your conversational response here]
