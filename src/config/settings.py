@@ -1,9 +1,10 @@
 class Settings:
     # Application Settings
     APP_NAME: str = "AI Product Owner Agent"
+    MAX_HISTORY_LENGTH: int = 20
     
     # Model Settings
-    MODEL_NAME: str = "llama3:latest"
-    MAX_HISTORY_LENGTH: int = 20
+    SECURITY_MODEL: str = "phi3:latest" # Lightweight, fast model for classifying requests.
+    PO_MODEL: str = "mistral:latest" # Advanced 7B model with enhanced reasoning.
 
 settings = Settings() 
