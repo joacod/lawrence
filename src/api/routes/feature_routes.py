@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from src.models.schemas import FeatureInput, AgentOutput, AgentOutputData, AgentOutputError, HealthResponse
 from src.services.agent_service import AgentService
 from src.config.settings import settings
@@ -32,20 +33,33 @@ async def process_feature(input: FeatureInput):
                 )
             )
         else:
-            return AgentOutput(
-                error=AgentOutputError(
-                    type=result.error.type,
-                    message=result.error.message
-                )
+            # Determine status code based on error type
+            status_code = 500  # default
+            if result.error.type == "security_rejection":
+                status_code = 400
+            elif result.error.type == "internal_server_error":
+                status_code = 503
+            
+            return JSONResponse(
+                status_code=status_code,
+                content=AgentOutput(
+                    error=AgentOutputError(
+                        type=result.error.type,
+                        message=result.error.message
+                    )
+                ).model_dump()
             )
         
     except Exception as e:
         # This should rarely happen since AgentService now handles errors internally
-        return AgentOutput(
-            error=AgentOutputError(
-                type="internal_server_error",
-                message=str(e)
-            )
+        return JSONResponse(
+            status_code=503,
+            content=AgentOutput(
+                error=AgentOutputError(
+                    type="internal_server_error",
+                    message=str(e)
+                )
+            ).model_dump()
         )
 
 @router.delete("/clear_session/{session_id}")
