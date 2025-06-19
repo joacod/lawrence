@@ -4,7 +4,7 @@ class Settings:
     MAX_HISTORY_LENGTH: int = 20
     
     # Model Settings
-    SECURITY_MODEL: str = "phi3:latest"
-    PO_MODEL: str = "llama3:latest"
+    SECURITY_MODEL: str = "phi3:latest" # Lightweight, fast model for classifying requests.
+    PO_MODEL: str = "mistral:latest" # Advanced 7B model with enhanced reasoning.
 
 settings = Settings() 
