@@ -2,18 +2,30 @@ from typing import List, Optional, Literal
 from datetime import datetime
 from pydantic import BaseModel
 
+class AgentSuccessData(BaseModel):
+    """Structure for successful agent responses"""
+    session_id: Optional[str] = None
+    title: str
+    response: str
+    markdown: str
+    questions: List[str]
+    created_at: datetime
+    updated_at: datetime
+
+class AgentError(BaseModel):
+    """Structure for agent errors"""
+    type: Literal["security_rejection", "parsing_error", "model_error"]
+    message: str
+
 class AgentResponse(BaseModel):
     """Base response structure for all agents"""
-    success: bool
-    message: str
-    session_id: Optional[str] = None
-    title: Optional[str] = None
-    response: Optional[str] = None
-    markdown: Optional[str] = None
-    questions: Optional[List[str]] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    error_type: Optional[Literal["security_rejection", "parsing_error", "model_error"]] = None
+    data: Optional[AgentSuccessData] = None
+    error: Optional[AgentError] = None
+
+    @property
+    def success(self) -> bool:
+        """Helper method to determine if the response was successful"""
+        return self.data is not None and self.error is None
 
 class SecurityResponse(BaseModel):
     """Response structure for security agent"""

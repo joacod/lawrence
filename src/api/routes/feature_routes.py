@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from src.models.schemas import FeatureInput, AgentOutput, HealthResponse
+from src.models.schemas import FeatureInput, AgentOutput, AgentOutputData, AgentOutputError, HealthResponse
 from src.services.agent_service import AgentService
 from src.config.settings import settings
 
@@ -18,23 +18,35 @@ async def process_feature(input: FeatureInput):
             session_id=input.session_id
         )
         
-        # Convert AgentResponse to AgentOutput
-        return AgentOutput(
-            success=result.success,
-            message=result.message,
-            session_id=result.session_id,
-            title=result.title,
-            response=result.response,
-            markdown=result.markdown,
-            questions=result.questions,
-            created_at=result.created_at,
-            updated_at=result.updated_at,
-            error_type=result.error_type
-        )
+        # Convert AgentResponse to AgentOutput based on success/error
+        if result.success:
+            return AgentOutput(
+                data=AgentOutputData(
+                    session_id=result.data.session_id,
+                    title=result.data.title,
+                    response=result.data.response,
+                    markdown=result.data.markdown,
+                    questions=result.data.questions,
+                    created_at=result.data.created_at,
+                    updated_at=result.data.updated_at
+                )
+            )
+        else:
+            return AgentOutput(
+                error=AgentOutputError(
+                    type=result.error.type,
+                    message=result.error.message
+                )
+            )
         
     except Exception as e:
         # This should rarely happen since AgentService now handles errors internally
-        raise HTTPException(status_code=500, detail=str(e))
+        return AgentOutput(
+            error=AgentOutputError(
+                type="model_error",
+                message=str(e)
+            )
+        )
 
 @router.delete("/clear_session/{session_id}")
 async def clear_session(session_id: str):

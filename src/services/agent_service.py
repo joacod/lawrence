@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from src.services.security_agent import SecurityAgent
 from src.services.po_agent import POAgent
-from src.models.agent_response import AgentResponse
+from src.models.agent_response import AgentResponse, AgentSuccessData, AgentError
 
 # Configure logging
 logging.basicConfig(
@@ -37,12 +37,10 @@ class AgentService:
             if not security_result.is_feature_request:
                 logger.info("Request rejected by security agent")
                 return AgentResponse(
-                    success=False,
-                    message=self._generate_security_rejection_message(security_result),
-                    session_id=session_id,
-                    created_at=current_time,
-                    updated_at=current_time,
-                    error_type="security_rejection"
+                    error=AgentError(
+                        type="security_rejection",
+                        message=self._generate_security_rejection_message(security_result)
+                    )
                 )
             
             logger.info("Request approved by security agent, proceeding to PO agent")
@@ -55,26 +53,24 @@ class AgentService:
             session_id, title, response, markdown, questions, created_at, updated_at = po_result
             
             return AgentResponse(
-                success=True,
-                message="Feature processed successfully",
-                session_id=session_id,
-                title=title,
-                response=response,
-                markdown=markdown,
-                questions=questions,
-                created_at=created_at,
-                updated_at=updated_at
+                data=AgentSuccessData(
+                    session_id=session_id,
+                    title=title,
+                    response=response,
+                    markdown=markdown,
+                    questions=questions,
+                    created_at=created_at,
+                    updated_at=updated_at
+                )
             )
             
         except Exception as e:
             logger.error("Error in agent service:", exc_info=True)
             return AgentResponse(
-                success=False,
-                message=f"An error occurred while processing your request: {str(e)}",
-                session_id=session_id,
-                created_at=current_time,
-                updated_at=current_time,
-                error_type="model_error"
+                error=AgentError(
+                    type="model_error",
+                    message=f"An error occurred while processing your request: {str(e)}"
+                )
             )
 
     def _generate_security_rejection_message(self, security_result) -> str:
@@ -91,9 +87,6 @@ class AgentService:
         
         message += "This assistant is specifically designed to help with software feature development, documentation, and product management tasks. "
         message += "Please try asking about software features, user stories, acceptance criteria, or product requirements instead."
-        
-        if reasoning and len(reasoning.strip()) > 0:
-            message += f"\n\nReasoning: {reasoning}"
         
         return message
 

@@ -6,17 +6,25 @@ class FeatureInput(BaseModel):
     session_id: Optional[str] = None
     feature: str
 
-class AgentOutput(BaseModel):
-    success: bool
-    message: str
+class AgentOutputData(BaseModel):
+    """Structure for successful agent responses in API"""
     session_id: Optional[str] = None
-    title: Optional[str] = None
-    response: Optional[str] = None
-    markdown: Optional[str] = None
-    questions: Optional[List[str]] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    error_type: Optional[Literal["security_rejection", "parsing_error", "model_error"]] = None
+    title: str
+    response: str
+    markdown: str
+    questions: List[str]
+    created_at: datetime
+    updated_at: datetime
+
+class AgentOutputError(BaseModel):
+    """Structure for agent errors in API"""
+    type: Literal["security_rejection", "parsing_error", "model_error"]
+    message: str
+
+class AgentOutput(BaseModel):
+    """API response structure"""
+    data: Optional[AgentOutputData] = None
+    error: Optional[AgentOutputError] = None
 
 class HealthResponse(BaseModel):
     status: str
