@@ -65,8 +65,22 @@ class AgentService:
             )
             
         except Exception as e:
+            # Check if this is an Ollama connection error
+            error_message = str(e).lower()
+            if any(keyword in error_message for keyword in [
+                "connection", "connect", "connection refused", "connection error", 
+                "all connection attempts failed", "ollama"
+            ]):
+                logger.error("Ollama connection failed: %s", str(e))
+                return AgentResponse(
+                    error=AgentError(
+                        type="internal_server_error",
+                        message="An internal error occurred. Please try again later."
+                    )
+                )
+            
+            # For other errors, log the full traceback but keep user message generic
             logger.error("Error in agent service:", exc_info=True)
-            logger.error(f"Detailed error: {str(e)}")
             return AgentResponse(
                 error=AgentError(
                     type="internal_server_error",
