@@ -30,9 +30,18 @@ class AgentService:
         current_time = datetime.now(timezone.utc)
         
         try:
-            # Step 1: Security evaluation
+            # Step 1: Security evaluation with context
             logger.info("Step 1: Security evaluation")
-            security_result = await self.security_agent.evaluate_request(feature)
+            
+            # Get session context if this is a follow-up request
+            session_context = None
+            if session_id and session_id in self.po_agent.session_titles:
+                session_context = {
+                    'title': self.po_agent.session_titles[session_id]
+                }
+                logger.info(f"Using session context: {session_context['title']}")
+            
+            security_result = await self.security_agent.evaluate_request(feature, session_context)
             
             if not security_result.is_feature_request:
                 logger.info("Request rejected by security agent")

@@ -34,7 +34,7 @@ def extract_questions(text: str) -> List[str]:
     if match:
         questions_text = match.group(1).strip()
         if questions_text:
-            # Split by bullet points and clean up
+            # Split by lines and clean up
             questions = []
             for line in questions_text.split('\n'):
                 # Remove both * and - bullet points and clean up whitespace
@@ -43,7 +43,11 @@ def extract_questions(text: str) -> List[str]:
                     line = line[2:].strip()
                 elif line.startswith('* '):
                     line = line[2:].strip()
-                if line:
+                elif line.startswith('-'):
+                    line = line[1:].strip()
+                elif line.startswith('*'):
+                    line = line[1:].strip()
+                if line and not line.startswith('PENDING QUESTIONS:'):
                     questions.append(line)
             return questions
     
@@ -90,23 +94,17 @@ def parse_response_to_json(text: str) -> Dict[str, Union[str, List[str]]]:
     # Extract questions first (either from PENDING QUESTIONS or from response)
     questions = extract_questions(text)
     
-    # Split the text into sections
-    sections = re.split(r'(?:^|\n)\s*(?:RESPONSE:|MARKDOWN:)', text)
+    # Extract RESPONSE section
+    response_match = re.search(r'RESPONSE:\n(.*?)(?=\n\n(?:PENDING QUESTIONS:|MARKDOWN:))', text, re.DOTALL)
+    if not response_match:
+        raise ValueError("Input text must contain a RESPONSE section")
+    response = response_match.group(1).strip()
     
-    # Remove empty strings and strip whitespace
-    sections = [s.strip() for s in sections if s.strip()]
-    
-    # If we don't have exactly two sections, raise an error
-    if len(sections) != 2:
-        raise ValueError("Input text must contain exactly two sections: RESPONSE and MARKDOWN")
-    
-    # Get response (remove PENDING QUESTIONS section if present)
-    response = re.split(r'\nPENDING QUESTIONS:', sections[0])[0].strip()
-    
-    # Clean up response: remove "RESPONSE:" prefix if present
-    response = re.sub(r'^RESPONSE:\s*', '', response).strip()
-    
-    markdown = sections[1].strip()
+    # Extract MARKDOWN section
+    markdown_match = re.search(r'MARKDOWN:\n(.*?)$', text, re.DOTALL)
+    if not markdown_match:
+        raise ValueError("Input text must contain a MARKDOWN section")
+    markdown = markdown_match.group(1).strip()
     
     # Create the JSON structure
     return {
