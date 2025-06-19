@@ -2,6 +2,7 @@ import logging
 import sys
 import json
 import re
+from typing import Optional, Dict, List
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama.chat_models import ChatOllama
 from src.config.settings import settings
@@ -22,7 +23,7 @@ class SecurityAgent:
         """Initialize the Security Agent with the LLM model and prompt template."""
         self.llm = ChatOllama(model=settings.SECURITY_MODEL)
         
-        system_prompt = """You are a strict Security Agent for a Software Product Management Enhancement System. Your primary responsibility is to REJECT any requests that are not explicitly related to software product management, development, or company operations.
+        system_prompt = """You are a strict Security Agent for a Software Product Management Enhancement System. Your primary responsibility is to evaluate requests for relevance to software product management, development, or company operations.
 
 CONTEXT: This system is designed to help companies with software product management and development processes. It is NOT a general question-answering system.
 
@@ -42,6 +43,24 @@ VALID REQUESTS must be explicitly related to:
 13. Code quality and testing processes
 14. DevOps and deployment processes
 15. Software integration requirements
+
+CONTEXT-AWARE EVALUATION:
+- If this is a follow-up request to an existing feature, evaluate it in the context of the original feature
+- Follow-up requests that expand, clarify, or add details to the original feature should be ACCEPTED
+- Consider the original feature's domain and accept related technical specifications, requirements, or enhancements
+- Examples of valid follow-ups:
+  * Original: "login system" → Follow-up: "password strength validation" (ACCEPT)
+  * Original: "login system" → Follow-up: "two-factor authentication" (ACCEPT)
+  * Original: "login system" → Follow-up: "password reset functionality" (ACCEPT)
+  * Original: "user dashboard" → Follow-up: "add charts and graphs" (ACCEPT)
+  * Original: "user dashboard" → Follow-up: "real-time data updates" (ACCEPT)
+  * Original: "payment system" → Follow-up: "support for multiple currencies" (ACCEPT)
+  * Original: "payment system" → Follow-up: "payment gateway integration" (ACCEPT)
+  * Original: "notification system" → Follow-up: "email and SMS notifications" (ACCEPT)
+  * Original: "notification system" → Follow-up: "push notifications" (ACCEPT)
+  * Original: "user profile" → Follow-up: "profile picture upload" (ACCEPT)
+  * Original: "search functionality" → Follow-up: "advanced filters" (ACCEPT)
+  * Original: "reporting system" → Follow-up: "export to PDF" (ACCEPT)
 
 AUTOMATICALLY REJECT:
 - General knowledge questions
@@ -65,6 +84,8 @@ EVALUATION RULES:
 3. Reject vague requests that could be interpreted as non-software related
 4. Require clear software product management context
 5. Zero tolerance for non-software related queries
+6. Consider the original feature context when evaluating follow-ups
+7. Accept technical specifications, requirements, and enhancements related to the original feature
 
 IMPORTANT: Your response MUST be a valid JSON object with EXACTLY these fields:
 {{
@@ -101,18 +122,35 @@ DO NOT include any other text before or after the JSON. The response must be ONL
             cleaned_text = cleaned_text.replace("True", "true").replace("False", "false")
             return json.loads(cleaned_text)
 
-    async def evaluate_request(self, user_input: str) -> SecurityResponse:
+    async def evaluate_request(self, user_input: str, session_context: Optional[Dict] = None) -> SecurityResponse:
         """
         Evaluate if the user input is a valid software product management related request.
         
         Args:
             user_input (str): The user's input text to evaluate
+            session_context (Optional[Dict]): Context about the current session including original feature title
             
         Returns:
             SecurityResponse: Object containing the evaluation results
         """
         logger.info("Security agent evaluating request")
-        result = await self.chain.ainvoke({"input": user_input})
+        
+        # Prepare the input with context if available
+        if session_context and session_context.get('title'):
+            original_feature = session_context['title']
+            contextual_input = f"""CONTEXT: This is a follow-up request to an existing feature.
+
+ORIGINAL FEATURE: {original_feature}
+
+CURRENT REQUEST: {user_input}
+
+Please evaluate if the current request is related to or enhances the original feature."""
+            logger.info(f"Evaluating with context - Original: {original_feature}")
+        else:
+            contextual_input = user_input
+            logger.info("Evaluating without context")
+        
+        result = await self.chain.ainvoke({"input": contextual_input})
         
         # Try to parse the JSON response
         try:
