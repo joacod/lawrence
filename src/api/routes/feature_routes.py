@@ -13,22 +13,27 @@ async def health_check():
 @router.post("/process_feature", response_model=AgentOutput)
 async def process_feature(input: FeatureInput):
     try:
-        session_id, title, response, markdown, questions, created_at, updated_at = await agent_service.process_feature(
+        result = await agent_service.process_feature(
             feature=input.feature,
             session_id=input.session_id
         )
+        
+        # Convert AgentResponse to AgentOutput
         return AgentOutput(
-            session_id=session_id,
-            title=title,
-            response=response,
-            questions=questions,
-            markdown=markdown,
-            created_at=created_at,
-            updated_at=updated_at
+            success=result.success,
+            message=result.message,
+            session_id=result.session_id,
+            title=result.title,
+            response=result.response,
+            markdown=result.markdown,
+            questions=result.questions,
+            created_at=result.created_at,
+            updated_at=result.updated_at,
+            error_type=result.error_type
         )
-    except ValueError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        
     except Exception as e:
+        # This should rarely happen since AgentService now handles errors internally
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/clear_session/{session_id}")

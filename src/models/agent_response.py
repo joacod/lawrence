@@ -1,12 +1,9 @@
-from pydantic import BaseModel
-from typing import Optional, List, Literal
+from typing import List, Optional, Literal
 from datetime import datetime
+from pydantic import BaseModel
 
-class FeatureInput(BaseModel):
-    session_id: Optional[str] = None
-    feature: str
-
-class AgentOutput(BaseModel):
+class AgentResponse(BaseModel):
+    """Base response structure for all agents"""
     success: bool
     message: str
     session_id: Optional[str] = None
@@ -18,6 +15,8 @@ class AgentOutput(BaseModel):
     updated_at: Optional[datetime] = None
     error_type: Optional[Literal["security_rejection", "parsing_error", "model_error"]] = None
 
-class HealthResponse(BaseModel):
-    status: str
-    service: str 
+class SecurityResponse(BaseModel):
+    """Response structure for security agent"""
+    is_feature_request: bool
+    confidence: float
+    reasoning: str 
