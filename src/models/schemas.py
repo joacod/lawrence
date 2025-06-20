@@ -11,6 +11,15 @@ class AgentOutputError(BaseModel):
     type: Literal["security_rejection", "parsing_error", "internal_server_error", "not_found"]
     message: str
 
+class ConversationMessage(BaseModel):
+    """Structure for individual conversation messages"""
+    type: str  # "user" or "assistant"
+    content: Optional[str] = None
+    response: Optional[str] = None
+    markdown: Optional[str] = None
+    questions: Optional[List[str]] = None
+    timestamp: Optional[datetime] = None
+
 class SessionData(BaseModel):
     """Structure for session data"""
     session_id: str
@@ -21,9 +30,22 @@ class SessionData(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+class SessionDataWithConversation(BaseModel):
+    """Structure for session data including full conversation history"""
+    session_id: str
+    title: str
+    created_at: datetime
+    updated_at: datetime
+    conversation: List[ConversationMessage]
+
 class SessionResponse(BaseModel):
     """Response structure for GET session endpoint"""
     data: List[SessionData]
+    error: Optional[AgentOutputError] = None
+
+class SessionWithConversationResponse(BaseModel):
+    """Response structure for GET session endpoint with conversation history"""
+    data: List[SessionDataWithConversation]
     error: Optional[AgentOutputError] = None
 
 class AgentOutputData(BaseModel):

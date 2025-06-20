@@ -103,4 +103,61 @@ class StorageManager:
             "title": self.get_session_title(session_id),
             "created_at": timestamps.get("created_at"),
             "updated_at": timestamps.get("updated_at")
+        }
+
+    def get_all_session_data(self, session_id: str) -> Optional[Dict]:
+        """Get all conversation data for a session including full history"""
+        if session_id not in self._sessions:
+            return None
+        
+        # Get basic session info
+        metadata = self.get_session_metadata(session_id)
+        if metadata is None:
+            return None
+        
+        # Get chat history
+        chat_history = self._sessions[session_id]
+        
+        # Extract all conversation data from chat history
+        conversation_data = []
+        
+        for i, message in enumerate(chat_history):
+            if hasattr(message, 'content') and isinstance(message.content, str):
+                # Check if this is a user message or AI response
+                if hasattr(message, 'type') and message.type == "human":
+                    # User message
+                    conversation_data.append({
+                        "type": "user",
+                        "content": message.content,
+                        "timestamp": metadata["updated_at"]  # We don't store individual timestamps yet
+                    })
+                else:
+                    # AI response - try to parse JSON
+                    try:
+                        import json
+                        parsed_content = json.loads(message.content)
+                        if isinstance(parsed_content, dict):
+                            conversation_data.append({
+                                "type": "assistant",
+                                "response": parsed_content.get("response", ""),
+                                "markdown": parsed_content.get("markdown", ""),
+                                "questions": parsed_content.get("questions", []),
+                                "timestamp": metadata["updated_at"]  # We don't store individual timestamps yet
+                            })
+                    except (json.JSONDecodeError, AttributeError):
+                        # Fallback for non-JSON AI messages
+                        conversation_data.append({
+                            "type": "assistant",
+                            "response": message.content,
+                            "markdown": "",
+                            "questions": [],
+                            "timestamp": metadata["updated_at"]
+                        })
+        
+        return {
+            "session_id": session_id,
+            "title": metadata["title"],
+            "created_at": metadata["created_at"],
+            "updated_at": metadata["updated_at"],
+            "conversation": conversation_data
         } 

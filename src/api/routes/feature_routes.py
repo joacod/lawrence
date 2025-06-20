@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
-from src.models.schemas import FeatureInput, AgentOutput, AgentOutputData, AgentOutputError, HealthResponse, SessionResponse, SessionData
+from src.models.schemas import FeatureInput, AgentOutput, AgentOutputData, AgentOutputError, HealthResponse, SessionWithConversationResponse, SessionDataWithConversation, ConversationMessage
 from src.services.agent_service import AgentService
 from src.config.settings import settings
 
@@ -11,15 +11,15 @@ agent_service = AgentService()
 async def health_check():
     return {"status": "healthy", "service": settings.APP_NAME}
 
-@router.get("/session/{session_id}", response_model=SessionResponse)
+@router.get("/session/{session_id}", response_model=SessionWithConversationResponse)
 async def get_session(session_id: str):
-    """Get a specific session by session_id"""
-    session_data = agent_service.get_session(session_id)
+    """Get a specific session by session_id with full conversation history"""
+    session_data = agent_service.get_session_with_conversation(session_id)
     
     if not session_data:
         return JSONResponse(
             status_code=404,
-            content=SessionResponse(
+            content=SessionWithConversationResponse(
                 data=[],
                 error=AgentOutputError(
                     type="not_found",
@@ -28,17 +28,27 @@ async def get_session(session_id: str):
             ).model_dump()
         )
     
-    session = SessionData(
+    # Convert conversation data to proper schema format
+    conversation_messages = []
+    for msg in session_data["conversation"]:
+        conversation_messages.append(ConversationMessage(
+            type=msg["type"],
+            content=msg.get("content"),
+            response=msg.get("response"),
+            markdown=msg.get("markdown"),
+            questions=msg.get("questions", []),
+            timestamp=msg.get("timestamp")
+        ))
+    
+    session = SessionDataWithConversation(
         session_id=session_data["session_id"],
         title=session_data["title"],
-        response=session_data["response"],
-        markdown=session_data["markdown"],
-        questions=session_data["questions"],
         created_at=session_data["created_at"],
-        updated_at=session_data["updated_at"]
+        updated_at=session_data["updated_at"],
+        conversation=conversation_messages
     )
     
-    return SessionResponse(
+    return SessionWithConversationResponse(
         data=[session],
         error=None
     )

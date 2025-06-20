@@ -127,4 +127,8 @@ class AgentService:
 
     def get_session(self, session_id: str) -> dict | None:
         """Get session data from the session manager"""
-        return self.session_manager.get_session_data(session_id) 
+        return self.session_manager.get_session_data(session_id)
+
+    def get_session_with_conversation(self, session_id: str) -> dict | None:
+        """Get session data with full conversation history"""
+        return self.session_manager.get_session_with_conversation(session_id) 

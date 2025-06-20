@@ -104,4 +104,8 @@ class SessionManager:
             "questions": latest_questions,
             "created_at": metadata["created_at"],
             "updated_at": metadata["updated_at"]
-        } 
+        }
+
+    def get_session_with_conversation(self, session_id: str) -> dict | None:
+        """Get session data including full conversation history"""
+        return self.storage.get_all_session_data(session_id) 
