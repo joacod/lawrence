@@ -2,10 +2,12 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from src.models.schemas import FeatureInput, AgentOutput, AgentOutputData, AgentOutputError, HealthResponse, SessionWithConversationResponse, SessionDataWithConversation, ConversationMessage
 from src.services.agent_service import AgentService
+from src.services.session_service import SessionService
 from src.config.settings import settings
 
 router = APIRouter()
 agent_service = AgentService()
+session_service = SessionService()
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
@@ -14,7 +16,7 @@ async def health_check():
 @router.get("/session/{session_id}", response_model=SessionWithConversationResponse)
 async def get_session(session_id: str):
     """Get a specific session by session_id with full conversation history"""
-    session_data = agent_service.get_session_with_conversation(session_id)
+    session_data = session_service.get_session_with_conversation(session_id)
     
     if not session_data:
         return JSONResponse(
@@ -106,6 +108,6 @@ async def process_feature(input: FeatureInput):
 
 @router.delete("/clear_session/{session_id}")
 async def clear_session(session_id: str):
-    if agent_service.clear_session(session_id):
+    if session_service.clear_session(session_id):
         return {"message": f"Session {session_id} deleted"}
     raise HTTPException(status_code=404, detail="Session not found") 

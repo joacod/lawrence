@@ -4,7 +4,6 @@ import uuid
 from datetime import datetime, timezone
 from src.services.security_agent import SecurityAgent
 from src.services.po_agent import POAgent
-from src.core.session_manager import SessionManager
 from src.core.storage_manager import StorageManager
 from src.models.agent_response import AgentResponse, AgentSuccessData, AgentError
 
@@ -22,7 +21,6 @@ class AgentService:
     def __init__(self):
         self.security_agent = SecurityAgent()
         self.po_agent = POAgent()
-        self.session_manager = SessionManager()
         self.storage = StorageManager()
 
     async def process_feature(self, feature: str, session_id: str | None = None) -> AgentResponse:
@@ -119,16 +117,4 @@ class AgentService:
         message += "This assistant is specifically designed to help with software feature development, documentation, and product management tasks. "
         message += "Please try asking about software features, user stories, acceptance criteria, or product requirements instead."
         
-        return message
-
-    def clear_session(self, session_id: str) -> bool:
-        """Clear a session from the session manager"""
-        return self.session_manager.clear_session(session_id)
-
-    def get_session(self, session_id: str) -> dict | None:
-        """Get session data from the session manager"""
-        return self.session_manager.get_session_data(session_id)
-
-    def get_session_with_conversation(self, session_id: str) -> dict | None:
-        """Get session data with full conversation history"""
-        return self.session_manager.get_session_with_conversation(session_id) 
+        return message 
