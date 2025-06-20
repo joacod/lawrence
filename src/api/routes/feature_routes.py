@@ -7,21 +7,32 @@ from src.models.schemas import (
 )
 from src.services.agent_service import AgentService
 from src.services.session_service import SessionService
+from src.services.health_service import HealthService
 from src.config.settings import settings
 
 router = APIRouter()
 agent_service = AgentService()
 session_service = SessionService()
+health_service = HealthService()
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
-    return HealthResponse(
-        data=HealthData(
-            status="healthy",
-            service=settings.APP_NAME
-        ),
-        error=None
-    )
+    """Enhanced health check that includes Ollama connectivity"""
+    try:
+        health_status = await health_service.check_health()
+        return HealthResponse(
+            data=HealthData(**health_status),
+            error=None
+        )
+    except Exception as e:
+        # If health service itself fails, return unhealthy status
+        return HealthResponse(
+            data=HealthData(
+                status="unhealthy",
+                service=settings.APP_NAME
+            ),
+            error=None
+        )
 
 @router.get("/session/{session_id}", response_model=SessionWithConversationResponse)
 async def get_session(session_id: str):
