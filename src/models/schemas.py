@@ -44,7 +44,7 @@ class AgentOutputData(BaseModel):
 class HealthData(BaseModel):
     """Structure for health check response data"""
     status: str
-    service: str
+    message: str
 
 class ClearSessionData(BaseModel):
     """Structure for clear session response data"""

@@ -21,7 +21,7 @@ class HealthService:
     async def check_health(self) -> dict:
         """
         Simple health check that tests Ollama connectivity
-        Returns: {"status": "healthy|unhealthy", "service": "app_name"}
+        Returns: {"status": "healthy|unhealthy", "message": "descriptive message"}
         """
         try:
             logger.info("Checking Ollama connectivity...")
@@ -32,12 +32,12 @@ class HealthService:
             logger.info("Ollama check successful")
             return {
                 "status": "healthy",
-                "service": settings.APP_NAME
+                "message": "Service up and running"
             }
             
         except Exception as e:
             logger.error(f"Ollama health check failed: {e}")
             return {
                 "status": "unhealthy",
-                "service": settings.APP_NAME
+                "message": f"Ollama connection failed: {str(e)[:100]}"
             } 

@@ -29,7 +29,7 @@ async def health_check():
         return HealthResponse(
             data=HealthData(
                 status="unhealthy",
-                service=settings.APP_NAME
+                message="Service unavailable"
             ),
             error=None
         )
