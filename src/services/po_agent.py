@@ -1,6 +1,5 @@
-from typing import Dict, List
+from typing import List
 import json
-import uuid
 import logging
 import sys
 from datetime import datetime, timezone
@@ -9,6 +8,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from langchain_ollama.chat_models import ChatOllama
 from src.config.settings import settings
 from src.utils.response_parser import parse_response_to_json
+from src.core.session_manager import SessionManager
 
 # Configure logging
 logging.basicConfig(
@@ -67,33 +67,13 @@ class POAgent:
         ])
         
         self.chain = self.prompt | self.llm
-        self.sessions: Dict[str, List] = {}
-        self.session_titles: Dict[str, str] = {}
-        self.session_timestamps: Dict[str, Dict[str, datetime]] = {}
+        self.session_manager = SessionManager()
 
     async def process_feature(self, feature: str, session_id: str | None = None) -> tuple[str, str, str, str, list[str], datetime, datetime]:
-        session_id = session_id or str(uuid.uuid4())
-        current_time = datetime.now(timezone.utc)
+        session_id = self.session_manager.create_session(session_id)
+        created_at, updated_at = self.session_manager.get_session_timestamps(session_id)
         
-        # Handle timestamps
-        if session_id not in self.session_timestamps:
-            # New session - set both created_at and updated_at
-            self.session_timestamps[session_id] = {
-                "created_at": current_time,
-                "updated_at": current_time
-            }
-            created_at = current_time
-            updated_at = current_time
-        else:
-            # Existing session - update only updated_at, keep original created_at
-            self.session_timestamps[session_id]["updated_at"] = current_time
-            created_at = self.session_timestamps[session_id]["created_at"]
-            updated_at = current_time
-        
-        if session_id not in self.sessions:
-            self.sessions[session_id] = []
-        
-        chat_history = self.sessions[session_id]
+        chat_history = self.session_manager.get_chat_history(session_id)
         
         try:
             # Get conversational response
@@ -151,32 +131,7 @@ Previous response that needs to be reformatted:
                     raise
             
             # Extract title from markdown if this is a new session
-            title = ""
-            if session_id not in self.session_titles:
-                # Extract title from the first line of markdown
-                markdown_lines = output["markdown"].split('\n')
-                for line in markdown_lines:
-                    line = line.strip()
-                    # Look for various markdown header formats
-                    if line.startswith('# Feature:'):
-                        title = line.replace('# Feature:', '').strip()
-                        break
-                    elif line.startswith('# '):
-                        # Extract title from any # header (most common case)
-                        title = line.replace('# ', '').strip()
-                        break
-                    elif line.startswith('## '):
-                        # If no # header found, try ## header
-                        title = line.replace('## ', '').strip()
-                        break
-                
-                # If no title found in markdown, use a default
-                if not title:
-                    title = "Untitled Feature"
-                self.session_titles[session_id] = title
-            else:
-                # Use existing title for this session
-                title = self.session_titles[session_id]
+            title = self._extract_title_from_markdown(output["markdown"], session_id)
             
             # Update chat history
             chat_history.append(HumanMessage(content=feature))
@@ -185,7 +140,7 @@ Previous response that needs to be reformatted:
             if len(chat_history) > settings.MAX_HISTORY_LENGTH:
                 chat_history = chat_history[-settings.MAX_HISTORY_LENGTH:]
             
-            self.sessions[session_id] = chat_history
+            self.session_manager.update_chat_history(session_id, chat_history)
             
             return session_id, title, output["response"], output["markdown"], output["questions"], created_at, updated_at
             
@@ -195,12 +150,33 @@ Previous response that needs to be reformatted:
             logger.error(f"Feature input: {feature}")
             raise
 
-    def clear_session(self, session_id: str) -> bool:
-        if session_id in self.sessions:
-            del self.sessions[session_id]
-            if session_id in self.session_titles:
-                del self.session_titles[session_id]
-            if session_id in self.session_timestamps:
-                del self.session_timestamps[session_id]
-            return True
-        return False 
+    def _extract_title_from_markdown(self, markdown: str, session_id: str) -> str:
+        """Extract title from markdown and set it for the session"""
+        # Check if session already has a title
+        existing_title = self.session_manager.get_session_title(session_id)
+        if existing_title != "Untitled Feature":
+            return existing_title
+        
+        # Extract title from the first line of markdown
+        markdown_lines = markdown.split('\n')
+        for line in markdown_lines:
+            line = line.strip()
+            # Look for various markdown header formats
+            if line.startswith('# Feature:'):
+                title = line.replace('# Feature:', '').strip()
+                break
+            elif line.startswith('# '):
+                # Extract title from any # header (most common case)
+                title = line.replace('# ', '').strip()
+                break
+            elif line.startswith('## '):
+                # If no # header found, try ## header
+                title = line.replace('## ', '').strip()
+                break
+        else:
+            # If no title found in markdown, use a default
+            title = "Untitled Feature"
+        
+        # Set the title for this session
+        self.session_manager.set_session_title(session_id, title)
+        return title 

@@ -1,9 +1,9 @@
 import logging
 import sys
 import uuid
-from datetime import datetime, timezone
 from src.services.security_agent import SecurityAgent
 from src.services.po_agent import POAgent
+from src.core.storage_manager import StorageManager
 from src.models.agent_response import AgentResponse, AgentSuccessData, AgentError
 
 # Configure logging
@@ -20,6 +20,7 @@ class AgentService:
     def __init__(self):
         self.security_agent = SecurityAgent()
         self.po_agent = POAgent()
+        self.storage = StorageManager()
 
     async def process_feature(self, feature: str, session_id: str | None = None) -> AgentResponse:
         """
@@ -27,7 +28,6 @@ class AgentService:
         First evaluates with security agent, then processes with PO agent if approved.
         """
         session_id = session_id or str(uuid.uuid4())
-        current_time = datetime.now(timezone.utc)
         
         try:
             # Step 1: Security evaluation with context
@@ -35,9 +35,9 @@ class AgentService:
             
             # Get session context if this is a follow-up request
             session_context = None
-            if session_id and session_id in self.po_agent.session_titles:
+            if session_id and self.storage.session_exists(session_id):
                 session_context = {
-                    'title': self.po_agent.session_titles[session_id]
+                    'title': self.storage.get_session_title(session_id)
                 }
                 logger.info(f"Using session context: {session_context['title']}")
             
@@ -115,8 +115,4 @@ class AgentService:
         message += "This assistant is specifically designed to help with software feature development, documentation, and product management tasks. "
         message += "Please try asking about software features, user stories, acceptance criteria, or product requirements instead."
         
-        return message
-
-    def clear_session(self, session_id: str) -> bool:
-        """Clear a session from the PO agent"""
-        return self.po_agent.clear_session(session_id) 
+        return message 
