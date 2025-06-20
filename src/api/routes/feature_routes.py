@@ -1,6 +1,10 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
-from src.models.schemas import FeatureInput, AgentOutput, AgentOutputData, AgentOutputError, HealthResponse, SessionWithConversationResponse, SessionDataWithConversation, ConversationMessage
+from src.models.schemas import (
+    FeatureInput, AgentOutput, AgentOutputData, AgentOutputError, 
+    HealthResponse, HealthData, SessionWithConversationResponse, 
+    SessionDataWithConversation, ConversationMessage, ClearSessionResponse, ClearSessionData
+)
 from src.services.agent_service import AgentService
 from src.services.session_service import SessionService
 from src.config.settings import settings
@@ -11,7 +15,13 @@ session_service = SessionService()
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
-    return {"status": "healthy", "service": settings.APP_NAME}
+    return HealthResponse(
+        data=HealthData(
+            status="healthy",
+            service=settings.APP_NAME
+        ),
+        error=None
+    )
 
 @router.get("/session/{session_id}", response_model=SessionWithConversationResponse)
 async def get_session(session_id: str):
@@ -22,7 +32,7 @@ async def get_session(session_id: str):
         return JSONResponse(
             status_code=404,
             content=SessionWithConversationResponse(
-                data=[],
+                data=None,
                 error=AgentOutputError(
                     type="not_found",
                     message="Session not found"
@@ -74,7 +84,8 @@ async def process_feature(input: FeatureInput):
                     questions=result.data.questions,
                     created_at=result.data.created_at,
                     updated_at=result.data.updated_at
-                )
+                ),
+                error=None
             )
         else:
             # Determine status code based on error type
@@ -87,6 +98,7 @@ async def process_feature(input: FeatureInput):
             return JSONResponse(
                 status_code=status_code,
                 content=AgentOutput(
+                    data=None,
                     error=AgentOutputError(
                         type=result.error.type,
                         message=result.error.message
@@ -99,6 +111,7 @@ async def process_feature(input: FeatureInput):
         return JSONResponse(
             status_code=503,
             content=AgentOutput(
+                data=None,
                 error=AgentOutputError(
                     type="internal_server_error",
                     message=str(e)
@@ -106,8 +119,23 @@ async def process_feature(input: FeatureInput):
             ).model_dump()
         )
 
-@router.delete("/clear_session/{session_id}")
+@router.delete("/clear_session/{session_id}", response_model=ClearSessionResponse)
 async def clear_session(session_id: str):
     if session_service.clear_session(session_id):
-        return {"message": f"Session {session_id} deleted"}
-    raise HTTPException(status_code=404, detail="Session not found") 
+        return ClearSessionResponse(
+            data=ClearSessionData(
+                message=f"Session {session_id} deleted"
+            ),
+            error=None
+        )
+    
+    return JSONResponse(
+        status_code=404,
+        content=ClearSessionResponse(
+            data=None,
+            error=AgentOutputError(
+                type="not_found",
+                message="Session not found"
+            )
+        ).model_dump()
+    ) 

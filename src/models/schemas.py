@@ -1,6 +1,9 @@
 from pydantic import BaseModel
-from typing import Optional, List, Literal
+from typing import Optional, List, Literal, Union, Generic, TypeVar
 from datetime import datetime
+
+# Generic type variable for response data
+T = TypeVar('T')
 
 class FeatureInput(BaseModel):
     session_id: Optional[str] = None
@@ -28,11 +31,6 @@ class SessionDataWithConversation(BaseModel):
     updated_at: datetime
     conversation: List[ConversationMessage]
 
-class SessionWithConversationResponse(BaseModel):
-    """Response structure for GET session endpoint with conversation history"""
-    data: List[SessionDataWithConversation]
-    error: Optional[AgentOutputError] = None
-
 class AgentOutputData(BaseModel):
     """Structure for successful agent responses in API"""
     session_id: Optional[str] = None
@@ -43,11 +41,34 @@ class AgentOutputData(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-class AgentOutput(BaseModel):
-    """API response structure"""
-    data: Optional[AgentOutputData] = None
+class HealthData(BaseModel):
+    """Structure for health check response data"""
+    status: str
+    service: str
+
+class ClearSessionData(BaseModel):
+    """Structure for clear session response data"""
+    message: str
+
+# Generic response wrapper
+class ApiResponse(BaseModel, Generic[T]):
+    """Generic API response structure with consistent data/error format"""
+    data: Optional[T] = None
     error: Optional[AgentOutputError] = None
 
-class HealthResponse(BaseModel):
-    status: str
-    service: str 
+# Specific response types using the generic wrapper
+class HealthResponse(ApiResponse[HealthData]):
+    """Response structure for health check endpoint"""
+    pass
+
+class SessionWithConversationResponse(ApiResponse[List[SessionDataWithConversation]]):
+    """Response structure for GET session endpoint with conversation history"""
+    pass
+
+class AgentOutput(ApiResponse[AgentOutputData]):
+    """API response structure for agent operations"""
+    pass
+
+class ClearSessionResponse(ApiResponse[ClearSessionData]):
+    """Response structure for clear session endpoint"""
+    pass 
