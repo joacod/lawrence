@@ -39,5 +39,5 @@ class HealthService:
             logger.error(f"Ollama health check failed: {e}")
             return {
                 "status": "unhealthy",
-                "message": f"Ollama connection failed: {str(e)[:100]}"
+                "message": "Ollama connection failed"
             } 
