@@ -5,10 +5,20 @@ from datetime import datetime, timezone
 from langchain_core.messages import HumanMessage, AIMessage
 
 class SessionManager:
+    _instance = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(SessionManager, cls).__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+    
     def __init__(self):
-        self.sessions: Dict[str, List] = {}
-        self.session_titles: Dict[str, str] = {}
-        self.session_timestamps: Dict[str, Dict[str, datetime]] = {}
+        if not self._initialized:
+            self.sessions: Dict[str, List] = {}
+            self.session_titles: Dict[str, str] = {}
+            self.session_timestamps: Dict[str, Dict[str, datetime]] = {}
+            self._initialized = True
 
     def create_session(self, session_id: str | None = None) -> str:
         """Create a new session and return the session_id"""
