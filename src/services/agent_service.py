@@ -1,7 +1,6 @@
 import logging
 import sys
 import uuid
-from datetime import datetime, timezone
 from src.services.security_agent import SecurityAgent
 from src.services.po_agent import POAgent
 from src.core.storage_manager import StorageManager
@@ -29,7 +28,6 @@ class AgentService:
         First evaluates with security agent, then processes with PO agent if approved.
         """
         session_id = session_id or str(uuid.uuid4())
-        current_time = datetime.now(timezone.utc)
         
         try:
             # Step 1: Security evaluation with context

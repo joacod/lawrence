@@ -20,16 +20,6 @@ class ConversationMessage(BaseModel):
     questions: Optional[List[str]] = None
     timestamp: Optional[datetime] = None
 
-class SessionData(BaseModel):
-    """Structure for session data"""
-    session_id: str
-    title: str
-    response: str
-    markdown: str
-    questions: List[str]
-    created_at: datetime
-    updated_at: datetime
-
 class SessionDataWithConversation(BaseModel):
     """Structure for session data including full conversation history"""
     session_id: str
@@ -37,11 +27,6 @@ class SessionDataWithConversation(BaseModel):
     created_at: datetime
     updated_at: datetime
     conversation: List[ConversationMessage]
-
-class SessionResponse(BaseModel):
-    """Response structure for GET session endpoint"""
-    data: List[SessionData]
-    error: Optional[AgentOutputError] = None
 
 class SessionWithConversationResponse(BaseModel):
     """Response structure for GET session endpoint with conversation history"""

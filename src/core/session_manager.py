@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import List
 import json
 import uuid
 from datetime import datetime, timezone
@@ -63,48 +63,6 @@ class SessionManager:
     def clear_session(self, session_id: str) -> bool:
         """Clear a session and return True if it existed"""
         return self.storage.delete_session(session_id)
-
-    def get_session_data(self, session_id: str) -> dict | None:
-        """Get all data for a specific session"""
-        if not self.storage.session_exists(session_id):
-            return None
-        
-        # Get basic session info from storage
-        metadata = self.storage.get_session_metadata(session_id)
-        if metadata is None:
-            return None
-        
-        # Get chat history
-        chat_history = self.storage.get_chat_history(session_id)
-        
-        # Extract the latest response data from chat history
-        latest_response = None
-        latest_markdown = None
-        latest_questions = []
-        
-        # Look for the latest AI message in chat history
-        for message in reversed(chat_history):
-            if hasattr(message, 'content') and isinstance(message.content, str):
-                try:
-                    # Try to parse the content as JSON (AI responses are stored as JSON)
-                    parsed_content = json.loads(message.content)
-                    if isinstance(parsed_content, dict):
-                        latest_response = parsed_content.get("response", "")
-                        latest_markdown = parsed_content.get("markdown", "")
-                        latest_questions = parsed_content.get("questions", [])
-                        break
-                except (json.JSONDecodeError, AttributeError):
-                    continue
-        
-        return {
-            "session_id": session_id,
-            "title": metadata["title"],
-            "response": latest_response or "",
-            "markdown": latest_markdown or "",
-            "questions": latest_questions,
-            "created_at": metadata["created_at"],
-            "updated_at": metadata["updated_at"]
-        }
 
     def get_session_with_conversation(self, session_id: str) -> dict | None:
         """Get session data including full conversation history"""

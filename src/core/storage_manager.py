@@ -1,6 +1,5 @@
 from typing import Dict, List, Optional
 from datetime import datetime
-from langchain_core.messages import HumanMessage, AIMessage
 
 class StorageManager:
     """
@@ -56,11 +55,6 @@ class StorageManager:
         """Update chat history for a session"""
         self._sessions[session_id] = chat_history
 
-    def initialize_chat_history(self, session_id: str) -> None:
-        """Initialize empty chat history for a session"""
-        if session_id not in self._sessions:
-            self._sessions[session_id] = []
-
     # Title operations
     def set_session_title(self, session_id: str, title: str) -> None:
         """Set the title for a session"""
@@ -88,10 +82,6 @@ class StorageManager:
         }
 
     # Data retrieval operations
-    def get_all_session_ids(self) -> List[str]:
-        """Get all session IDs"""
-        return list(self._sessions.keys())
-
     def get_session_metadata(self, session_id: str) -> Optional[Dict]:
         """Get session metadata (title and timestamps)"""
         if session_id not in self._sessions:
