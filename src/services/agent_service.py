@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from src.services.security_agent import SecurityAgent
 from src.services.po_agent import POAgent
 from src.core.session_manager import SessionManager
+from src.core.storage_manager import StorageManager
 from src.models.agent_response import AgentResponse, AgentSuccessData, AgentError
 
 # Configure logging
@@ -22,6 +23,7 @@ class AgentService:
         self.security_agent = SecurityAgent()
         self.po_agent = POAgent()
         self.session_manager = SessionManager()
+        self.storage = StorageManager()
 
     async def process_feature(self, feature: str, session_id: str | None = None) -> AgentResponse:
         """
@@ -37,9 +39,9 @@ class AgentService:
             
             # Get session context if this is a follow-up request
             session_context = None
-            if session_id and session_id in self.session_manager.sessions:
+            if session_id and self.storage.session_exists(session_id):
                 session_context = {
-                    'title': self.session_manager.get_session_title(session_id)
+                    'title': self.storage.get_session_title(session_id)
                 }
                 logger.info(f"Using session context: {session_context['title']}")
             
