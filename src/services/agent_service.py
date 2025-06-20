@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from src.services.security_agent import SecurityAgent
 from src.services.po_agent import POAgent
+from src.core.session_manager import SessionManager
 from src.models.agent_response import AgentResponse, AgentSuccessData, AgentError
 
 # Configure logging
@@ -20,6 +21,7 @@ class AgentService:
     def __init__(self):
         self.security_agent = SecurityAgent()
         self.po_agent = POAgent()
+        self.session_manager = SessionManager()
 
     async def process_feature(self, feature: str, session_id: str | None = None) -> AgentResponse:
         """
@@ -35,9 +37,9 @@ class AgentService:
             
             # Get session context if this is a follow-up request
             session_context = None
-            if session_id and session_id in self.po_agent.session_titles:
+            if session_id and session_id in self.session_manager.sessions:
                 session_context = {
-                    'title': self.po_agent.session_titles[session_id]
+                    'title': self.session_manager.get_session_title(session_id)
                 }
                 logger.info(f"Using session context: {session_context['title']}")
             
@@ -118,9 +120,9 @@ class AgentService:
         return message
 
     def clear_session(self, session_id: str) -> bool:
-        """Clear a session from the PO agent"""
-        return self.po_agent.clear_session(session_id)
+        """Clear a session from the session manager"""
+        return self.session_manager.clear_session(session_id)
 
     def get_session(self, session_id: str) -> dict | None:
-        """Get session data from the PO agent"""
-        return self.po_agent.get_session_data(session_id) 
+        """Get session data from the session manager"""
+        return self.session_manager.get_session_data(session_id) 
