@@ -1,8 +1,8 @@
 import logging
 import sys
 import uuid
-from src.services.security_agent import SecurityAgent
-from src.services.po_agent import POAgent
+from src.agents.security_agent import SecurityAgent
+from src.agents.po_agent import POAgent
 from src.core.storage_manager import StorageManager
 from src.models.agent_response import AgentResponse, AgentSuccessData, AgentError
 
