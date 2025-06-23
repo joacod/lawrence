@@ -14,23 +14,6 @@ class AgentOutputError(BaseModel):
     type: Literal["security_rejection", "parsing_error", "internal_server_error", "not_found"]
     message: str
 
-class ConversationMessage(BaseModel):
-    """Structure for individual conversation messages"""
-    type: str  # "user" or "assistant"
-    content: Optional[str] = None
-    response: Optional[str] = None
-    markdown: Optional[str] = None
-    questions: Optional[List[str]] = None
-    timestamp: Optional[datetime] = None
-
-class SessionDataWithConversation(BaseModel):
-    """Structure for session data including full conversation history"""
-    session_id: str
-    title: str
-    created_at: datetime
-    updated_at: datetime
-    conversation: List[ConversationMessage]
-
 # Chat section structure
 class ChatProgress(BaseModel):
     """Structure for chat progress tracking"""
@@ -64,6 +47,23 @@ class TicketsData(BaseModel):
     """Structure for tickets section"""
     backend: List[Ticket]
     frontend: List[Ticket]
+
+class ConversationMessage(BaseModel):
+    """Structure for individual conversation messages"""
+    type: str  # "user" or "assistant"
+    content: Optional[str] = None
+    timestamp: Optional[datetime] = None
+    chat: Optional[ChatData] = None
+    feature_overview: Optional[FeatureOverview] = None
+    tickets: Optional[TicketsData] = None
+
+class SessionDataWithConversation(BaseModel):
+    """Structure for session data including full conversation history"""
+    session_id: str
+    title: str
+    created_at: datetime
+    updated_at: datetime
+    conversation: List[ConversationMessage]
 
 class AgentOutputData(BaseModel):
     """Structure for successful agent responses in API"""

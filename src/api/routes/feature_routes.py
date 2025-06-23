@@ -55,15 +55,81 @@ async def get_session(session_id: str):
     
     # Convert conversation data to proper schema format
     conversation_messages = []
+    
     for msg in session_data["conversation"]:
-        conversation_messages.append(ConversationMessage(
-            type=msg["type"],
-            content=msg.get("content"),
-            response=msg.get("response"),
-            markdown=msg.get("markdown"),
-            questions=msg.get("questions", []),
-            timestamp=msg.get("timestamp")
-        ))
+        if msg["type"] == "user":
+            # User messages - set structured data to null
+            conversation_messages.append(ConversationMessage(
+                type=msg["type"],
+                content=msg.get("content"),
+                timestamp=msg.get("timestamp"),
+                chat=None,
+                feature_overview=None,
+                tickets=None
+            ))
+            
+        elif msg["type"] == "assistant":
+            # Assistant messages - parse the markdown and create full structure
+            markdown = msg.get("markdown", "")
+            response = msg.get("response", "")
+            questions = msg.get("questions", [])
+            
+            # Parse markdown to extract feature overview and tickets
+            markdown_sections = parse_markdown_sections(markdown)
+            
+            # Create chat data
+            chat_data = ChatData(
+                response=response,
+                questions=questions,
+                suggestions=None,
+                progress=ChatProgress(
+                    answered_questions=0,
+                    total_questions=len(questions)
+                )
+            )
+            
+            # Create feature overview from parsed data
+            feature_overview = FeatureOverview(
+                description=markdown_sections.get("description", ""),
+                acceptance_criteria=markdown_sections.get("acceptance_criteria", []),
+                progress_percentage=0
+            )
+            
+            # Create backend tickets from parsed data
+            backend_tickets = []
+            for backend_change in markdown_sections.get("backend_changes", []):
+                backend_tickets.append(Ticket(
+                    title=backend_change[:50] + "..." if len(backend_change) > 50 else backend_change,
+                    description=backend_change,
+                    technical_details=None,
+                    acceptance_criteria=None,
+                    cursor_prompt=None
+                ))
+            
+            # Create frontend tickets from parsed data
+            frontend_tickets = []
+            for frontend_change in markdown_sections.get("frontend_changes", []):
+                frontend_tickets.append(Ticket(
+                    title=frontend_change[:50] + "..." if len(frontend_change) > 50 else frontend_change,
+                    description=frontend_change,
+                    technical_details=None,
+                    acceptance_criteria=None,
+                    cursor_prompt=None
+                ))
+            
+            tickets = TicketsData(
+                backend=backend_tickets,
+                frontend=frontend_tickets
+            )
+            
+            conversation_messages.append(ConversationMessage(
+                type=msg["type"],
+                content=msg.get("content"),
+                timestamp=msg.get("timestamp"),
+                chat=chat_data,
+                feature_overview=feature_overview,
+                tickets=tickets
+            ))
     
     session = SessionDataWithConversation(
         session_id=session_data["session_id"],
