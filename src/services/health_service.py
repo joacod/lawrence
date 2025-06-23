@@ -6,7 +6,13 @@ logger = setup_logger(__name__)
 
 class HealthService:
     def __init__(self):
-        self.ollama_client = ChatOllama(model=settings.PO_MODEL)
+        self.ollama_client = ChatOllama(
+            model=settings.PO_MODEL,
+            base_url="http://localhost:11434",
+            timeout=30,  # Short timeout for health checks
+            temperature=0.1,
+            num_ctx=512,  # Small context for health check
+        )
     
     async def check_health(self) -> dict:
         """

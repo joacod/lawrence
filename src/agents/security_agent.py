@@ -12,7 +12,13 @@ logger = setup_logger(__name__)
 class SecurityAgent:
     def __init__(self):
         """Initialize the Security Agent with the LLM model and prompt template."""
-        self.llm = ChatOllama(model=settings.SECURITY_MODEL)
+        self.llm = ChatOllama(
+            model=settings.SECURITY_MODEL,
+            base_url="http://localhost:11434",
+            timeout=120,  # 2 minutes timeout
+            temperature=0.1,  # Low temperature for consistent classification
+            num_ctx=2048,  # Context window size
+        )
         
         system_prompt = """You are a strict Security Agent for a Software Product Management Enhancement System. Your primary responsibility is to evaluate requests for relevance to software product management, development, or company operations.
 

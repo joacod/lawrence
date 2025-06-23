@@ -14,7 +14,13 @@ logger = setup_logger(__name__)
 class POAgent:
     def __init__(self):
         # Main conversation model
-        self.llm = ChatOllama(model=settings.PO_MODEL)
+        self.llm = ChatOllama(
+            model=settings.PO_MODEL,
+            base_url="http://localhost:11434",
+            timeout=180,  # 3 minutes timeout for longer responses
+            temperature=0.7,  # Higher temperature for creative responses
+            num_ctx=4096,  # Larger context window for conversation history
+        )
         
         # Main conversation prompt
         self.prompt = ChatPromptTemplate.from_messages([
