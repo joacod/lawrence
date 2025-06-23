@@ -1,6 +1,19 @@
 import re
 from typing import Dict, List, Union
 
+def _clean_bullet_point(line: str) -> str:
+    """Helper function to clean bullet points from a line"""
+    line = line.strip()
+    if line.startswith('- '):
+        line = line[2:].strip()
+    elif line.startswith('* '):
+        line = line[2:].strip()
+    elif line.startswith('-'):
+        line = line[1:].strip()
+    elif line.startswith('*'):
+        line = line[1:].strip()
+    return line
+
 def extract_questions_from_response(response_text: str) -> List[str]:
     """
     Extract questions from the response text by looking for question marks.
@@ -38,15 +51,7 @@ def extract_questions(text: str) -> List[str]:
             questions = []
             for line in questions_text.split('\n'):
                 # Remove both * and - bullet points and clean up whitespace
-                line = line.strip()
-                if line.startswith('- '):
-                    line = line[2:].strip()
-                elif line.startswith('* '):
-                    line = line[2:].strip()
-                elif line.startswith('-'):
-                    line = line[1:].strip()
-                elif line.startswith('*'):
-                    line = line[1:].strip()
+                line = _clean_bullet_point(line)
                 if line and not line.startswith('PENDING QUESTIONS:'):
                     questions.append(line)
             return questions
@@ -120,15 +125,7 @@ def parse_markdown_sections(markdown_text: str) -> Dict[str, Union[str, List[str
         ac_text = ac_match.group(1).strip()
         # Split by lines and clean up bullet points
         for line in ac_text.split('\n'):
-            line = line.strip()
-            if line.startswith('- '):
-                line = line[2:].strip()
-            elif line.startswith('* '):
-                line = line[2:].strip()
-            elif line.startswith('-'):
-                line = line[1:].strip()
-            elif line.startswith('*'):
-                line = line[1:].strip()
+            line = _clean_bullet_point(line)
             if line and not line.startswith('##'):
                 result["acceptance_criteria"].append(line)
     
@@ -138,15 +135,7 @@ def parse_markdown_sections(markdown_text: str) -> Dict[str, Union[str, List[str
         backend_text = backend_match.group(1).strip()
         # Split by lines and clean up bullet points
         for line in backend_text.split('\n'):
-            line = line.strip()
-            if line.startswith('- '):
-                line = line[2:].strip()
-            elif line.startswith('* '):
-                line = line[2:].strip()
-            elif line.startswith('-'):
-                line = line[1:].strip()
-            elif line.startswith('*'):
-                line = line[1:].strip()
+            line = _clean_bullet_point(line)
             if line and not line.startswith('##'):
                 result["backend_changes"].append(line)
     
@@ -156,15 +145,7 @@ def parse_markdown_sections(markdown_text: str) -> Dict[str, Union[str, List[str
         frontend_text = frontend_match.group(1).strip()
         # Split by lines and clean up bullet points
         for line in frontend_text.split('\n'):
-            line = line.strip()
-            if line.startswith('- '):
-                line = line[2:].strip()
-            elif line.startswith('* '):
-                line = line[2:].strip()
-            elif line.startswith('-'):
-                line = line[1:].strip()
-            elif line.startswith('*'):
-                line = line[1:].strip()
+            line = _clean_bullet_point(line)
             if line and not line.startswith('##'):
                 result["frontend_changes"].append(line)
     

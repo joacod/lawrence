@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List, Literal, Union, Generic, TypeVar
+from typing import Optional, List, Literal, Generic, TypeVar
 from datetime import datetime
 
 # Generic type variable for response data

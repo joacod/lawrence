@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from src.models.schemas import (
     FeatureInput, AgentOutput, AgentOutputData, AgentOutputError, 
@@ -10,12 +10,24 @@ from src.services.agent_service import AgentService
 from src.services.session_service import SessionService
 from src.services.health_service import HealthService
 from src.utils.response_parser import parse_markdown_sections
-from src.config.settings import settings
 
 router = APIRouter()
 agent_service = AgentService()
 session_service = SessionService()
 health_service = HealthService()
+
+def _create_tickets_from_changes(changes: list[str]) -> list[Ticket]:
+    """Helper function to create tickets from a list of changes"""
+    tickets = []
+    for change in changes:
+        tickets.append(Ticket(
+            title=change[:50] + "..." if len(change) > 50 else change,
+            description=change,
+            technical_details=None,
+            acceptance_criteria=None,
+            cursor_prompt=None
+        ))
+    return tickets
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
@@ -96,26 +108,10 @@ async def get_session(session_id: str):
             )
             
             # Create backend tickets from parsed data
-            backend_tickets = []
-            for backend_change in markdown_sections.get("backend_changes", []):
-                backend_tickets.append(Ticket(
-                    title=backend_change[:50] + "..." if len(backend_change) > 50 else backend_change,
-                    description=backend_change,
-                    technical_details=None,
-                    acceptance_criteria=None,
-                    cursor_prompt=None
-                ))
+            backend_tickets = _create_tickets_from_changes(markdown_sections.get("backend_changes", []))
             
             # Create frontend tickets from parsed data
-            frontend_tickets = []
-            for frontend_change in markdown_sections.get("frontend_changes", []):
-                frontend_tickets.append(Ticket(
-                    title=frontend_change[:50] + "..." if len(frontend_change) > 50 else frontend_change,
-                    description=frontend_change,
-                    technical_details=None,
-                    acceptance_criteria=None,
-                    cursor_prompt=None
-                ))
+            frontend_tickets = _create_tickets_from_changes(markdown_sections.get("frontend_changes", []))
             
             tickets = TicketsData(
                 backend=backend_tickets,
@@ -176,26 +172,10 @@ async def process_feature(input: FeatureInput):
             )
             
             # Create backend tickets from parsed data
-            backend_tickets = []
-            for backend_change in markdown_sections.get("backend_changes", []):
-                backend_tickets.append(Ticket(
-                    title=backend_change[:50] + "..." if len(backend_change) > 50 else backend_change,
-                    description=backend_change,
-                    technical_details=None,  # Will be implemented in future iterations
-                    acceptance_criteria=None,  # Will be implemented in future iterations
-                    cursor_prompt=None  # Will be implemented in future iterations
-                ))
+            backend_tickets = _create_tickets_from_changes(markdown_sections.get("backend_changes", []))
             
             # Create frontend tickets from parsed data
-            frontend_tickets = []
-            for frontend_change in markdown_sections.get("frontend_changes", []):
-                frontend_tickets.append(Ticket(
-                    title=frontend_change[:50] + "..." if len(frontend_change) > 50 else frontend_change,
-                    description=frontend_change,
-                    technical_details=None,  # Will be implemented in future iterations
-                    acceptance_criteria=None,  # Will be implemented in future iterations
-                    cursor_prompt=None  # Will be implemented in future iterations
-                ))
+            frontend_tickets = _create_tickets_from_changes(markdown_sections.get("frontend_changes", []))
             
             tickets = TicketsData(
                 backend=backend_tickets,

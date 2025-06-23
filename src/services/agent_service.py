@@ -1,20 +1,11 @@
-import logging
-import sys
 import uuid
 from src.agents.security_agent import SecurityAgent
 from src.agents.po_agent import POAgent
 from src.core.storage_manager import StorageManager
 from src.models.agent_response import AgentResponse, AgentSuccessData, AgentError
+from src.utils.logger import setup_logger
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 class AgentService:
     def __init__(self):
