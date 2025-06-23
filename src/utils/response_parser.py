@@ -59,6 +59,117 @@ def extract_questions(text: str) -> List[str]:
     
     return []
 
+def parse_markdown_sections(markdown_text: str) -> Dict[str, Union[str, List[str]]]:
+    """
+    Parse markdown text to extract Description, Acceptance Criteria, Backend Changes, and Frontend Changes.
+    
+    Args:
+        markdown_text (str): The markdown text to parse
+        
+    Returns:
+        Dict[str, Union[str, List[str]]]: A dictionary with 'description', 'acceptance_criteria', 
+        'backend_changes', and 'frontend_changes' keys
+        
+    Example:
+        Input:
+        # Feature: Email/Password Login System
+        
+        ## Description
+        A login system that allows users to access their account...
+        
+        ## Acceptance Criteria
+        - Users are able to enter their email addresses and passwords
+        - The system verifies the entered email and password...
+        
+        ## Backend Changes
+        - Implement user authentication logic...
+        
+        ## Frontend Changes
+        - Design and implement a login form...
+        
+        Output:
+        {
+            "description": "A login system that allows users to access their account...",
+            "acceptance_criteria": [
+                "Users are able to enter their email addresses and passwords",
+                "The system verifies the entered email and password..."
+            ],
+            "backend_changes": [
+                "Implement user authentication logic..."
+            ],
+            "frontend_changes": [
+                "Design and implement a login form..."
+            ]
+        }
+    """
+    result = {
+        "description": "",
+        "acceptance_criteria": [],
+        "backend_changes": [],
+        "frontend_changes": []
+    }
+    
+    # Extract Description section
+    description_match = re.search(r'## Description\n(.*?)(?=\n\n## )', markdown_text, re.DOTALL)
+    if description_match:
+        result["description"] = description_match.group(1).strip()
+    
+    # Extract Acceptance Criteria section
+    ac_match = re.search(r'## Acceptance Criteria\n(.*?)(?=\n\n## )', markdown_text, re.DOTALL)
+    if ac_match:
+        ac_text = ac_match.group(1).strip()
+        # Split by lines and clean up bullet points
+        for line in ac_text.split('\n'):
+            line = line.strip()
+            if line.startswith('- '):
+                line = line[2:].strip()
+            elif line.startswith('* '):
+                line = line[2:].strip()
+            elif line.startswith('-'):
+                line = line[1:].strip()
+            elif line.startswith('*'):
+                line = line[1:].strip()
+            if line and not line.startswith('##'):
+                result["acceptance_criteria"].append(line)
+    
+    # Extract Backend Changes section
+    backend_match = re.search(r'## Backend Changes\n(.*?)(?=\n\n## )', markdown_text, re.DOTALL)
+    if backend_match:
+        backend_text = backend_match.group(1).strip()
+        # Split by lines and clean up bullet points
+        for line in backend_text.split('\n'):
+            line = line.strip()
+            if line.startswith('- '):
+                line = line[2:].strip()
+            elif line.startswith('* '):
+                line = line[2:].strip()
+            elif line.startswith('-'):
+                line = line[1:].strip()
+            elif line.startswith('*'):
+                line = line[1:].strip()
+            if line and not line.startswith('##'):
+                result["backend_changes"].append(line)
+    
+    # Extract Frontend Changes section
+    frontend_match = re.search(r'## Frontend Changes\n(.*?)(?=\n\n## |$)', markdown_text, re.DOTALL)
+    if frontend_match:
+        frontend_text = frontend_match.group(1).strip()
+        # Split by lines and clean up bullet points
+        for line in frontend_text.split('\n'):
+            line = line.strip()
+            if line.startswith('- '):
+                line = line[2:].strip()
+            elif line.startswith('* '):
+                line = line[2:].strip()
+            elif line.startswith('-'):
+                line = line[1:].strip()
+            elif line.startswith('*'):
+                line = line[1:].strip()
+            if line and not line.startswith('##'):
+                result["frontend_changes"].append(line)
+    
+    return result
+
 def parse_response_to_json(text: str) -> Dict[str, Union[str, List[str]]]:
     """
     Parse a text response containing RESPONSE, optional PENDING QUESTIONS, and MARKDOWN sections into a JSON structure.

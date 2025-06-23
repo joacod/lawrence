@@ -9,6 +9,7 @@ from src.models.schemas import (
 from src.services.agent_service import AgentService
 from src.services.session_service import SessionService
 from src.services.health_service import HealthService
+from src.utils.response_parser import parse_markdown_sections
 from src.config.settings import settings
 
 router = APIRouter()
@@ -98,16 +99,41 @@ async def process_feature(input: FeatureInput):
                 )
             )
             
-            # Always provide feature_overview and tickets with proper structure
+            # Parse markdown to extract feature overview and tickets
+            markdown_sections = parse_markdown_sections(result.data.markdown)
+            
+            # Create feature overview from parsed data
             feature_overview = FeatureOverview(
-                description="Feature description will be implemented in future iterations",
-                acceptance_criteria=[],
-                progress_percentage=0
+                description=markdown_sections.get("description", "Feature description will be implemented in future iterations"),
+                acceptance_criteria=markdown_sections.get("acceptance_criteria", []),
+                progress_percentage=0  # Will be calculated in future iterations
             )
             
+            # Create backend tickets from parsed data
+            backend_tickets = []
+            for backend_change in markdown_sections.get("backend_changes", []):
+                backend_tickets.append(Ticket(
+                    title=backend_change[:50] + "..." if len(backend_change) > 50 else backend_change,
+                    description=backend_change,
+                    technical_details=None,  # Will be implemented in future iterations
+                    acceptance_criteria=None,  # Will be implemented in future iterations
+                    cursor_prompt=None  # Will be implemented in future iterations
+                ))
+            
+            # Create frontend tickets from parsed data
+            frontend_tickets = []
+            for frontend_change in markdown_sections.get("frontend_changes", []):
+                frontend_tickets.append(Ticket(
+                    title=frontend_change[:50] + "..." if len(frontend_change) > 50 else frontend_change,
+                    description=frontend_change,
+                    technical_details=None,  # Will be implemented in future iterations
+                    acceptance_criteria=None,  # Will be implemented in future iterations
+                    cursor_prompt=None  # Will be implemented in future iterations
+                ))
+            
             tickets = TicketsData(
-                backend=[],
-                frontend=[]
+                backend=backend_tickets,
+                frontend=frontend_tickets
             )
             
             return AgentOutput(
