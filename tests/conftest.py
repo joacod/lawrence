@@ -12,6 +12,9 @@ from src.models.schemas import (
     Ticket, TicketsData, ConversationMessage
 )
 from src.models.agent_response import AgentResponse, AgentSuccessData, AgentError, SecurityResponse
+from src.services.agent_service import AgentService
+from src.services.session_service import SessionService
+from src.services.health_service import HealthService
 
 
 @pytest.fixture(scope="session")
@@ -23,17 +26,66 @@ def event_loop():
 
 
 @pytest.fixture
-def test_client() -> Generator:
-    """Create a test client for FastAPI."""
-    with TestClient(app) as client:
-        yield client
+def mock_agent_service():
+    """Create a mock agent service for testing."""
+    mock_service = MagicMock(spec=AgentService)
+    mock_service.process_feature = AsyncMock()
+    return mock_service
 
 
 @pytest.fixture
-async def async_client() -> AsyncGenerator[AsyncClient, None]:
-    """Create an async test client for FastAPI."""
+def mock_session_service():
+    """Create a mock session service for testing."""
+    mock_service = MagicMock(spec=SessionService)
+    mock_service.get_session_with_conversation = MagicMock()
+    mock_service.clear_session = MagicMock()
+    return mock_service
+
+
+@pytest.fixture
+def mock_health_service():
+    """Create a mock health service for testing."""
+    mock_service = MagicMock(spec=HealthService)
+    mock_service.check_health = AsyncMock()
+    return mock_service
+
+
+@pytest.fixture
+def test_client(mock_agent_service, mock_session_service, mock_health_service) -> Generator:
+    """Create a test client for FastAPI with dependency overrides."""
+    # Override dependencies for testing
+    from src.api.routes import feature_routes
+    
+    app.dependency_overrides = {
+        feature_routes.get_agent_service: lambda: mock_agent_service,
+        feature_routes.get_session_service: lambda: mock_session_service,
+        feature_routes.get_health_service: lambda: mock_health_service,
+    }
+    
+    with TestClient(app) as client:
+        yield client
+    
+    # Clear overrides after test
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def async_client(mock_agent_service, mock_session_service, mock_health_service) -> AsyncGenerator[AsyncClient, None]:
+    """Create an async test client for FastAPI with dependency overrides."""
+    # Override dependencies for testing
+    from src.api.routes import feature_routes
+    
+    app.dependency_overrides = {
+        feature_routes.get_agent_service: lambda: mock_agent_service,
+        feature_routes.get_session_service: lambda: mock_session_service,
+        feature_routes.get_health_service: lambda: mock_health_service,
+    }
+    
     async with AsyncClient(app=app, base_url="http://test") as client:
         yield client
+    
+    # Clear overrides after test
+    app.dependency_overrides.clear()
 
 
 @pytest.fixture

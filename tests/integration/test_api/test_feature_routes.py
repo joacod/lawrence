@@ -10,10 +10,13 @@ class TestHealthEndpoint:
     """Test the health check endpoint."""
     
     @pytest.mark.asyncio
-    async def test_health_check_success(self, test_client, mock_ollama_client):
+    async def test_health_check_success(self, test_client, mock_health_service):
         """Test successful health check."""
         # Mock successful health check
-        mock_ollama_client.ainvoke.return_value = MagicMock()
+        mock_health_service.check_health.return_value = {
+            "status": "healthy",
+            "message": "Service up and running"
+        }
         
         response = test_client.get("/health")
         
@@ -24,11 +27,9 @@ class TestHealthEndpoint:
         assert data["error"] is None
     
     @pytest.mark.asyncio
-    async def test_health_check_failure(self, test_client, mocker):
+    async def test_health_check_failure(self, test_client, mock_health_service):
         """Test health check when Ollama is unavailable."""
         # Mock health service to return unhealthy status
-        mock_health_service = mocker.patch('src.api.routes.feature_routes.health_service')
-        mock_health_service.check_health = AsyncMock()
         mock_health_service.check_health.return_value = {
             "status": "unhealthy",
             "message": "Ollama connection failed"
@@ -47,11 +48,9 @@ class TestProcessFeatureEndpoint:
     """Test the process feature endpoint."""
     
     @pytest.mark.asyncio
-    async def test_process_feature_success(self, test_client, sample_feature_input, mocker):
+    async def test_process_feature_success(self, test_client, sample_feature_input, mock_agent_service):
         """Test successful feature processing."""
         # Mock successful agent response
-        mock_agent_service = mocker.patch('src.api.routes.feature_routes.agent_service')
-        mock_agent_service.process_feature = AsyncMock()
         mock_agent_service.process_feature.return_value = AgentResponse(
             data=AgentSuccessData(
                 session_id="test-session-123",
@@ -94,11 +93,9 @@ A comprehensive user authentication system.
         assert len(data["data"]["tickets"]["frontend"]) == 2
     
     @pytest.mark.asyncio
-    async def test_process_feature_security_rejection(self, test_client, sample_feature_input, mocker):
+    async def test_process_feature_security_rejection(self, test_client, sample_feature_input, mock_agent_service):
         """Test feature processing with security rejection."""
         # Mock security rejection
-        mock_agent_service = mocker.patch('src.api.routes.feature_routes.agent_service')
-        mock_agent_service.process_feature = AsyncMock()
         mock_agent_service.process_feature.return_value = AgentResponse(
             error=AgentError(
                 type="security_rejection",
@@ -115,11 +112,9 @@ A comprehensive user authentication system.
         assert data["error"]["message"] == "Request rejected by security agent"
     
     @pytest.mark.asyncio
-    async def test_process_feature_internal_error(self, test_client, sample_feature_input, mocker):
+    async def test_process_feature_internal_error(self, test_client, sample_feature_input, mock_agent_service):
         """Test feature processing with internal error."""
         # Mock internal error
-        mock_agent_service = mocker.patch('src.api.routes.feature_routes.agent_service')
-        mock_agent_service.process_feature = AsyncMock()
         mock_agent_service.process_feature.return_value = AgentResponse(
             error=AgentError(
                 type="internal_server_error",
@@ -135,22 +130,26 @@ A comprehensive user authentication system.
         assert data["error"]["type"] == "internal_server_error"
     
     @pytest.mark.asyncio
-    async def test_process_feature_invalid_input(self, test_client):
+    async def test_process_feature_invalid_input(self, test_client, mock_agent_service):
         """Test feature processing with invalid input."""
         # Test missing feature
         response = test_client.post("/process_feature", json={})
         assert response.status_code == 422
         
         # Test empty feature - currently the model doesn't validate empty strings, but security agent rejects them
+        mock_agent_service.process_feature.return_value = AgentResponse(
+            error=AgentError(
+                type="security_rejection",
+                message="Request rejected by security agent"
+            )
+        )
         response = test_client.post("/process_feature", json={"feature": ""})
         assert response.status_code == 400  # Security agent rejects empty feature requests
     
     @pytest.mark.asyncio
-    async def test_process_feature_agent_service_exception(self, test_client, sample_feature_input, mocker):
+    async def test_process_feature_agent_service_exception(self, test_client, sample_feature_input, mock_agent_service):
         """Test feature processing when agent service raises an exception."""
         # Mock agent service to raise exception
-        mock_agent_service = mocker.patch('src.api.routes.feature_routes.agent_service')
-        mock_agent_service.process_feature = AsyncMock()
         mock_agent_service.process_feature.side_effect = Exception("Unexpected error")
         
         response = test_client.post("/process_feature", json=sample_feature_input.model_dump())
@@ -165,10 +164,9 @@ class TestGetSessionEndpoint:
     """Test the get session endpoint."""
     
     @pytest.mark.asyncio
-    async def test_get_session_success(self, test_client, mock_session_data, mocker):
+    async def test_get_session_success(self, test_client, mock_session_data, mock_session_service):
         """Test successful session retrieval."""
         # Mock session service
-        mock_session_service = mocker.patch('src.api.routes.feature_routes.session_service')
         mock_session_service.get_session_with_conversation.return_value = mock_session_data
         
         response = test_client.get("/session/test-session-123")
@@ -185,10 +183,9 @@ class TestGetSessionEndpoint:
         assert session["conversation"][1]["type"] == "assistant"
     
     @pytest.mark.asyncio
-    async def test_get_session_not_found(self, test_client, mocker):
+    async def test_get_session_not_found(self, test_client, mock_session_service):
         """Test session retrieval when session doesn't exist."""
         # Mock session service to return None
-        mock_session_service = mocker.patch('src.api.routes.feature_routes.session_service')
         mock_session_service.get_session_with_conversation.return_value = None
         
         response = test_client.get("/session/nonexistent-session")
@@ -200,7 +197,7 @@ class TestGetSessionEndpoint:
         assert data["error"]["message"] == "Session not found"
     
     @pytest.mark.asyncio
-    async def test_get_session_with_assistant_message_parsing(self, test_client, mocker):
+    async def test_get_session_with_assistant_message_parsing(self, test_client, mock_session_service):
         """Test session retrieval with proper assistant message parsing."""
         # Create session data with assistant message containing markdown
         session_data = {
@@ -238,7 +235,6 @@ A comprehensive user authentication system.
         }
         
         # Mock session service
-        mock_session_service = mocker.patch('src.api.routes.feature_routes.session_service')
         mock_session_service.get_session_with_conversation.return_value = session_data
         
         response = test_client.get("/session/test-session-123")
@@ -271,10 +267,9 @@ class TestClearSessionEndpoint:
     """Test the clear session endpoint."""
     
     @pytest.mark.asyncio
-    async def test_clear_session_success(self, test_client, mocker):
+    async def test_clear_session_success(self, test_client, mock_session_service):
         """Test successful session clearing."""
         # Mock session service
-        mock_session_service = mocker.patch('src.api.routes.feature_routes.session_service')
         mock_session_service.clear_session.return_value = True
         
         response = test_client.delete("/clear_session/test-session-123")
@@ -285,10 +280,9 @@ class TestClearSessionEndpoint:
         assert data["data"]["message"] == "Session test-session-123 deleted"
     
     @pytest.mark.asyncio
-    async def test_clear_session_not_found(self, test_client, mocker):
+    async def test_clear_session_not_found(self, test_client, mock_session_service):
         """Test session clearing when session doesn't exist."""
         # Mock session service to return False
-        mock_session_service = mocker.patch('src.api.routes.feature_routes.session_service')
         mock_session_service.clear_session.return_value = False
         
         response = test_client.delete("/clear_session/nonexistent-session")

@@ -68,19 +68,45 @@ Lawrence uses a comprehensive testing framework to ensure code quality and relia
 
 ### Running Tests
 
+#### Run All Tests with Coverage
+
 ```bash
-# Run all tests with coverage
-python run_tests.py
-
-# Run only unit tests
-python run_tests.py unit
-
-# Run only integration tests
-python run_tests.py integration
-
-# Run tests with pytest directly
-pytest tests/ -v
+PYTHONPATH=. python run_tests.py
 ```
+
+**What it does**: Runs the complete test suite with coverage reporting.
+
+#### Run Only Unit Tests
+
+```bash
+PYTHONPATH=. python run_tests.py unit
+```
+
+**What it does**: Runs only unit tests for faster feedback during development.
+
+#### Run Only Integration Tests
+
+```bash
+PYTHONPATH=. python run_tests.py integration
+```
+
+**What it does**: Runs only integration tests to verify API endpoints and service interactions.
+
+#### Run Tests with Pytest Directly
+
+```bash
+PYTHONPATH=. pytest tests/ -v
+```
+
+**What it does**: Runs all tests with verbose output using pytest directly.
+
+#### Run Tests with Coverage Reports
+
+```bash
+PYTHONPATH=. pytest tests/ -v --cov=src --cov-report=term-missing --cov-report=html:htmlcov
+```
+
+**What it does**: Runs tests with detailed coverage reporting in terminal and HTML format.
 
 ### Test Structure
 
