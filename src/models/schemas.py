@@ -31,15 +31,49 @@ class SessionDataWithConversation(BaseModel):
     updated_at: datetime
     conversation: List[ConversationMessage]
 
+# Chat section structure
+class ChatProgress(BaseModel):
+    """Structure for chat progress tracking"""
+    answered_questions: int
+    total_questions: int
+
+class ChatData(BaseModel):
+    """Structure for chat section in response"""
+    response: str
+    questions: List[str]
+    suggestions: Optional[List[str]] = None
+    progress: Optional[ChatProgress] = None
+
+# Feature Overview section structure
+class FeatureOverview(BaseModel):
+    """Structure for feature overview section"""
+    description: str
+    acceptance_criteria: List[str]
+    progress_percentage: int
+
+# Tickets section structure
+class Ticket(BaseModel):
+    """Structure for individual tickets"""
+    title: str
+    description: str
+    technical_details: Optional[str] = None
+    acceptance_criteria: Optional[List[str]] = None
+    cursor_prompt: Optional[str] = None
+
+class TicketsData(BaseModel):
+    """Structure for tickets section"""
+    backend: List[Ticket]
+    frontend: List[Ticket]
+
 class AgentOutputData(BaseModel):
     """Structure for successful agent responses in API"""
     session_id: Optional[str] = None
     title: str
-    response: str
-    markdown: str
-    questions: List[str]
     created_at: datetime
     updated_at: datetime
+    chat: ChatData
+    feature_overview: FeatureOverview
+    tickets: TicketsData
 
 class HealthData(BaseModel):
     """Structure for health check response data"""

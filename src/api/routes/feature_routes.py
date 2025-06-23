@@ -3,7 +3,8 @@ from fastapi.responses import JSONResponse
 from src.models.schemas import (
     FeatureInput, AgentOutput, AgentOutputData, AgentOutputError, 
     HealthResponse, HealthData, SessionWithConversationResponse, 
-    SessionDataWithConversation, ConversationMessage, ClearSessionResponse, ClearSessionData
+    SessionDataWithConversation, ConversationMessage, ClearSessionResponse, ClearSessionData,
+    ChatData, ChatProgress, FeatureOverview, TicketsData, Ticket
 )
 from src.services.agent_service import AgentService
 from src.services.session_service import SessionService
@@ -86,15 +87,38 @@ async def process_feature(input: FeatureInput):
         
         # Convert AgentResponse to AgentOutput based on success/error
         if result.success:
+            # Transform internal response to API format
+            chat_data = ChatData(
+                response=result.data.response,
+                questions=result.data.questions,
+                suggestions=None,
+                progress=ChatProgress(
+                    answered_questions=0,
+                    total_questions=len(result.data.questions)
+                )
+            )
+            
+            # Always provide feature_overview and tickets with proper structure
+            feature_overview = FeatureOverview(
+                description="Feature description will be implemented in future iterations",
+                acceptance_criteria=[],
+                progress_percentage=0
+            )
+            
+            tickets = TicketsData(
+                backend=[],
+                frontend=[]
+            )
+            
             return AgentOutput(
                 data=AgentOutputData(
                     session_id=result.data.session_id,
                     title=result.data.title,
-                    response=result.data.response,
-                    markdown=result.data.markdown,
-                    questions=result.data.questions,
                     created_at=result.data.created_at,
-                    updated_at=result.data.updated_at
+                    updated_at=result.data.updated_at,
+                    chat=chat_data,
+                    feature_overview=feature_overview,
+                    tickets=tickets
                 ),
                 error=None
             )

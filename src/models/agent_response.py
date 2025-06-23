@@ -6,11 +6,11 @@ class AgentSuccessData(BaseModel):
     """Structure for successful agent responses"""
     session_id: Optional[str] = None
     title: str
+    created_at: datetime
+    updated_at: datetime
     response: str
     markdown: str
     questions: List[str]
-    created_at: datetime
-    updated_at: datetime
 
 class AgentError(BaseModel):
     """Structure for agent errors"""
