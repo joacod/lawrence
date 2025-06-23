@@ -53,36 +53,43 @@ python -m src.main
 
 **What it does**: Starts the FastAPI server on `http://localhost:8000`.
 
-## Testing with Postman
+## Testing
 
-Test the API using Postman or similar.
+Lawrence uses a comprehensive testing framework to ensure code quality and reliability.
 
-1. **Create a POST request** in Postman:
-   - **URL**: `http://localhost:8000/process_feature`
-   - **Body** (raw JSON):
-     ```json
-     {
-         "session_id": null,
-         "feature": "I want a login system with email and password"
-     }
-     ```
-2. **Send the request**.
-3. **Expected response**:
-   ```json
-   {
-       "session_id": "abc123...",
-       "response": "Got it. Questions: 1) Should it include two-factor authentication? 2) Is password recovery needed? 3) What frameworks or languages does the backend use?",
-       "markdown": "# Feature: Login System\n\n## Details\n- Login with email and password.\n## Pending Questions\n- Should 2FA be included?\n- Is password recovery needed?\n- What is the backend framework?"
-   }
-   ```
-4. **Iterate**:
-   - Use the returned `session_id` in a new POST request to continue the conversation:
-     ```json
-     {
-         "session_id": "abc123...",
-         "feature": "Yes, include password recovery. Backend in Node.js."
-     }
-     ```
-5. **Clear session** (optional):
-   - **URL**: `DELETE http://localhost:8000/clear_session/{session_id}`
-   - Example: `DELETE http://localhost:8000/clear_session/abc123...`
+### Testing Libraries
+
+- **pytest**: Main testing framework
+- **pytest-asyncio**: Async test support
+- **pytest-mock**: Mocking utilities
+- **pytest-cov**: Code coverage reporting
+- **httpx**: HTTP client for API testing
+- **factory-boy**: Test data factories
+
+### Running Tests
+
+```bash
+# Run all tests with coverage
+python run_tests.py
+
+# Run only unit tests
+python run_tests.py unit
+
+# Run only integration tests
+python run_tests.py integration
+
+# Run tests with pytest directly
+pytest tests/ -v
+```
+
+### Test Structure
+
+- **Unit Tests** (`tests/unit/`): Test individual functions and classes
+- **Integration Tests** (`tests/integration/`): Test API endpoints and service interactions
+- **Fixtures** (`tests/conftest.py`): Shared test data and mocks
+
+### Coverage Reports
+
+After running tests, coverage reports are generated in:
+- `htmlcov/`: HTML coverage report
+- `coverage.xml`: XML coverage report for CI tools
