@@ -1,22 +1,18 @@
-import logging
-import sys
-import asyncio
 from langchain_ollama.chat_models import ChatOllama
 from src.config.settings import settings
+from src.utils.logger import setup_logger
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 class HealthService:
     def __init__(self):
-        self.ollama_client = ChatOllama(model=settings.PO_MODEL)
+        self.ollama_client = ChatOllama(
+            model=settings.PO_MODEL,
+            base_url="http://localhost:11434",
+            timeout=30,  # Short timeout for health checks
+            temperature=0.1,
+            num_ctx=512,  # Small context for health check
+        )
     
     async def check_health(self) -> dict:
         """

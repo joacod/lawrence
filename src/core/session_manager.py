@@ -2,7 +2,6 @@ from typing import List
 import json
 import uuid
 from datetime import datetime, timezone
-from langchain_core.messages import HumanMessage, AIMessage
 from src.core.storage_manager import StorageManager
 
 class SessionManager:

@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional
 from datetime import datetime
+import json
 
 class StorageManager:
     """
@@ -124,7 +125,6 @@ class StorageManager:
                 else:
                     # AI response - try to parse JSON
                     try:
-                        import json
                         parsed_content = json.loads(message.content)
                         if isinstance(parsed_content, dict):
                             conversation_data.append({

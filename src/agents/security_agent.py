@@ -1,5 +1,3 @@
-import logging
-import sys
 import json
 import re
 from typing import Optional, Dict, List
@@ -7,21 +5,20 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama.chat_models import ChatOllama
 from src.config.settings import settings
 from src.models.agent_response import SecurityResponse
+from src.utils.logger import setup_logger
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logger = logging.getLogger(__name__)
+logger = setup_logger(__name__)
 
 class SecurityAgent:
     def __init__(self):
         """Initialize the Security Agent with the LLM model and prompt template."""
-        self.llm = ChatOllama(model=settings.SECURITY_MODEL)
+        self.llm = ChatOllama(
+            model=settings.SECURITY_MODEL,
+            base_url="http://localhost:11434",
+            timeout=120,  # 2 minutes timeout
+            temperature=0.1,  # Low temperature for consistent classification
+            num_ctx=2048,  # Context window size
+        )
         
         system_prompt = """You are a strict Security Agent for a Software Product Management Enhancement System. Your primary responsibility is to evaluate requests for relevance to software product management, development, or company operations.
 
