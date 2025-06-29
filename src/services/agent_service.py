@@ -4,6 +4,7 @@ from src.agents.po_agent import POAgent
 from src.core.storage_manager import StorageManager
 from src.models.agent_response import AgentResponse, AgentSuccessData, AgentError
 from src.utils.logger import setup_logger
+from src.agents.context_agent import ContextAgent
 
 logger = setup_logger(__name__)
 
@@ -12,57 +13,54 @@ class AgentService:
         self.security_agent = SecurityAgent()
         self.po_agent = POAgent()
         self.storage = StorageManager()
+        self.context_agent = ContextAgent()
 
     async def process_feature(self, feature: str, session_id: str | None = None) -> AgentResponse:
         """
         Main entry point for processing feature requests.
-        First evaluates with security agent, then processes with PO agent if approved.
+        1. SecurityAgent: Is this a valid software/product management request?
+        2. ContextAgent: Is this request contextually relevant to the current session/feature/questions?
+        3. POAgent: Process the feature, generate clarifications, etc.
+        4. QuestionAnalysisAgent: Analyze user answers to pending questions.
         """
         session_id = session_id or str(uuid.uuid4())
-        
         try:
-            # Step 1: Security evaluation with context
+            # Step 1: Security evaluation
             logger.info("Step 1: Security evaluation")
-            
-            # Get session context if this is a follow-up request
-            session_context = None
-            if session_id and self.storage.session_exists(session_id):
-                session_context = {
-                    'title': self.storage.get_session_title(session_id)
-                }
-                logger.info(f"Using session context: {session_context['title']}")
-            
-            security_result = await self.security_agent.evaluate_request(feature, session_context)
-            
+            security_result = await self.security_agent.evaluate_request(feature)
             if not security_result.is_feature_request:
                 logger.info("Request rejected by security agent")
-                # Check for context deviation
-                if (
-                    security_result.reasoning and
-                    "clarify your request or start a new feature" in security_result.reasoning.lower()
-                ):
-                    return AgentResponse(
-                        error=AgentError(
-                            type="context_deviation",
-                            message="Your follow-up request does not appear to relate to the original feature. Please clarify your request or start a new feature."
-                        )
-                    )
                 return AgentResponse(
                     error=AgentError(
                         type="security_rejection",
                         message=self._generate_security_rejection_message(security_result)
                     )
                 )
-            
-            logger.info("Request approved by security agent, proceeding to PO agent")
-            
-            # Step 2: PO agent processing
+
+            # Step 2: Context evaluation (only if security passes)
+            session_history = None
+            if session_id and self.storage.session_exists(session_id):
+                session_history = self.storage.get_all_session_data(session_id)
+                logger.info(f"Using session context: {self.storage.get_session_title(session_id)}")
+            if session_history:
+                context_result = await self.context_agent.evaluate_context(
+                    session_history=session_history,
+                    user_followup=feature
+                )
+                if not context_result.get("is_contextually_relevant", False):
+                    logger.info("Context agent rejected follow-up as not relevant to session context.")
+                    return AgentResponse(
+                        error=AgentError(
+                            type="context_deviation",
+                            message="Your follow-up request does not appear to relate to the original feature. Please clarify your request or start a new feature."
+                        )
+                    )
+
+            # Step 3: PO agent processing
             logger.info("Step 2: PO agent processing")
             po_result = await self.po_agent.process_feature(feature, session_id)
-            
-            # Extract results from PO agent
-            session_id, title, response, markdown, questions, created_at, updated_at = po_result
-            
+            session_id, title, response, markdown, questions, total_questions, answered_questions, created_at, updated_at = po_result
+
             return AgentResponse(
                 data=AgentSuccessData(
                     session_id=session_id,
@@ -71,10 +69,11 @@ class AgentService:
                     markdown=markdown,
                     questions=questions,
                     created_at=created_at,
-                    updated_at=updated_at
+                    updated_at=updated_at,
+                    answered_questions=answered_questions,
+                    total_questions=total_questions
                 )
             )
-            
         except Exception as e:
             # Check if this is an Ollama connection error
             error_message = str(e).lower()

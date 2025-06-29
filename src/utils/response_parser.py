@@ -203,4 +203,71 @@ def parse_response_to_json(text: str) -> Dict[str, Union[str, List[str]]]:
         "response": response,
         "markdown": markdown,
         "questions": questions
-    } 
+    }
+
+def parse_security_section(markdown_text: str) -> dict:
+    """Parse SECURITY section from markdown block."""
+    match = re.search(r'SECURITY:\s*\n(.*?)(?=\n\w+:|$)', markdown_text, re.DOTALL)
+    if not match:
+        raise ValueError("No SECURITY section found in response")
+    section = match.group(1)
+    result = {}
+    for line in section.splitlines():
+        if ':' in line:
+            key, value = line.split(':', 1)
+            result[key.strip()] = value.strip()
+    is_feature_request = result.get('is_feature_request', '').lower() == 'true'
+    try:
+        confidence = float(result.get('confidence', 1.0))
+    except Exception:
+        confidence = 1.0
+    reasoning = result.get('reasoning', '')
+    return {
+        "is_feature_request": is_feature_request,
+        "confidence": confidence,
+        "reasoning": reasoning
+    }
+
+def parse_context_section(markdown_text: str) -> dict:
+    """Parse CONTEXT section from markdown block."""
+    match = re.search(r'CONTEXT:\s*\n(.*?)(?=\n\w+:|$)', markdown_text, re.DOTALL)
+    if not match:
+        raise ValueError("No CONTEXT section found in response")
+    section = match.group(1)
+    result = {}
+    for line in section.splitlines():
+        if ':' in line:
+            key, value = line.split(':', 1)
+            result[key.strip()] = value.strip()
+    is_contextually_relevant = result.get('is_contextually_relevant', '').lower() == 'true'
+    reasoning = result.get('reasoning', '')
+    return {
+        "is_contextually_relevant": is_contextually_relevant,
+        "reasoning": reasoning
+    }
+
+def parse_questions_section(markdown_text: str) -> list:
+    """Parse QUESTIONS section from markdown block into a list of dicts."""
+    match = re.search(r'QUESTIONS:\s*\n(.*?)(?=\n\w+:|$)', markdown_text, re.DOTALL)
+    if not match:
+        raise ValueError("No QUESTIONS section found in response")
+    section = match.group(1)
+    questions = []
+    current = {}
+    for line in section.splitlines():
+        line = line.strip()
+        if line.startswith('- question:'):
+            if current:
+                questions.append(current)
+            current = {"question": line[len('- question:'):].strip().strip('"')}
+        elif line.startswith('status:'):
+            current["status"] = line[len('status:'):].strip().strip('"')
+        elif line.startswith('user_answer:'):
+            val = line[len('user_answer:'):].strip()
+            if val.lower() == 'null':
+                current["user_answer"] = None
+            else:
+                current["user_answer"] = val.strip('"')
+    if current:
+        questions.append(current)
+    return questions 

@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, List, Literal, Generic, TypeVar
 from datetime import datetime
+from src.models.agent_response import QuestionData
 
 # Generic type variable for response data
 T = TypeVar('T')
@@ -23,7 +24,7 @@ class ChatProgress(BaseModel):
 class ChatData(BaseModel):
     """Structure for chat section in response"""
     response: str
-    questions: List[str]
+    questions: List[QuestionData]
     suggestions: Optional[List[str]] = None
     progress: Optional[ChatProgress] = None
 

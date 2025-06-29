@@ -74,7 +74,7 @@ A comprehensive user authentication system.
 ## Frontend Changes
 - Create registration form
 - Create login form""",
-                questions=["What authentication method do you prefer?"]
+                questions=[{"question": "What authentication method do you prefer?", "status": "pending", "user_answer": None}]
             )
         )
         
@@ -228,7 +228,9 @@ A comprehensive user authentication system.
 
 ## Frontend Changes
 - Create login form""",
-                    "questions": ["What authentication method do you prefer?"],
+                    "questions": [
+                        {"question": "What authentication method do you prefer?", "status": "pending", "user_answer": None}
+                    ],
                     "timestamp": datetime.now(timezone.utc)
                 }
             ]

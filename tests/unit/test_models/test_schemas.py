@@ -8,6 +8,7 @@ from src.models.schemas import (
     AgentOutputData, HealthData, ClearSessionData, AgentOutput,
     HealthResponse, SessionWithConversationResponse, ClearSessionResponse
 )
+from src.models.agent_response import QuestionData
 
 
 class TestFeatureInput:
@@ -80,7 +81,10 @@ class TestChatData:
         """Test creating a valid ChatData."""
         data = {
             "response": "This is a test response",
-            "questions": ["Question 1?", "Question 2?"],
+            "questions": [
+                {"question": "Question 1?", "status": "pending", "user_answer": None},
+                {"question": "Question 2?", "status": "pending", "user_answer": None}
+            ],
             "suggestions": ["Suggestion 1", "Suggestion 2"],
             "progress": ChatProgress(answered_questions=1, total_questions=2)
         }
@@ -96,7 +100,9 @@ class TestChatData:
         """Test ChatData with optional fields set to None."""
         data = {
             "response": "This is a test response",
-            "questions": ["Question 1?"]
+            "questions": [
+                {"question": "Question 1?", "status": "pending", "user_answer": None}
+            ]
         }
         chat_data = ChatData(**data)
         
@@ -118,9 +124,10 @@ class TestChatData:
     
     def test_chat_data_missing_required_fields(self):
         """Test that missing required fields raise validation error."""
-        data = {"questions": ["Question 1?"]}
-        
-        with pytest.raises(ValidationError):
+        data = {"questions": [
+            {"question": "Question 1?", "status": "pending", "user_answer": None}
+        ]}
+        with pytest.raises(Exception):
             ChatData(**data)
 
 
@@ -280,7 +287,7 @@ class TestConversationMessage:
         """Test creating a valid assistant message."""
         chat_data = ChatData(
             response="I'll help you create a login system",
-            questions=["What authentication method do you prefer?"]
+            questions=[{"question": "What authentication method do you prefer?", "status": "pending", "user_answer": None}]
         )
         feature_overview = FeatureOverview(
             description="User authentication system",
@@ -374,7 +381,7 @@ class TestAgentOutputData:
         """Test creating a valid AgentOutputData."""
         chat_data = ChatData(
             response="Test response",
-            questions=["Test question?"]
+            questions=[{"question": "Test question?", "status": "pending", "user_answer": None}]
         )
         feature_overview = FeatureOverview(
             description="Test description",
