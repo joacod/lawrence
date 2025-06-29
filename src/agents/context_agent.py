@@ -3,6 +3,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama.chat_models import ChatOllama
 from src.config.settings import settings
 from src.utils.logger import setup_logger
+import os
 
 logger = setup_logger(__name__)
 
@@ -15,55 +16,9 @@ class ContextAgent:
             temperature=0.1,
             num_ctx=2048,
         )
-        system_prompt = """
-You are a Context Validation Agent for a Product Owner AI system.
-
-You will be given:
-- The current feature description
-- The list of pending clarifying questions
-- The user's follow-up message
-
-RULES:
-- If the follow-up is a direct answer (including a negative, paraphrased, or partial answer) to any pending question, it is contextually relevant.
-- If the follow-up adds, clarifies, or modifies details about the original feature, it is contextually relevant.
-- If the follow-up is unrelated to the feature or questions, it is NOT contextually relevant.
-
-EXAMPLES:
-Pending: "Will there be any additional authentication factors required, like two-factor authentication or biometrics?"
-User: "No additional authentication factors required."
-→ Contextually relevant (negative answer)
-
-Pending: "Will there be any additional authentication factors required, like two-factor authentication or biometrics?"
-User: "Just email and password, nothing else."
-→ Contextually relevant (negative answer)
-
-Pending: "Will there be any additional authentication factors required, like two-factor authentication or biometrics?"
-User: "Yes, add two-factor authentication using SMS."
-→ Contextually relevant (positive answer)
-
-Pending: "Will there be any additional authentication factors required, like two-factor authentication or biometrics?"
-User: "I want a dashboard with charts."
-→ NOT contextually relevant
-
-Your response MUST be a markdown block with the following format:
-RESPONSE:
-[Short summary of the context evaluation.]
-
-CONTEXT:
-is_contextually_relevant: true or false
-reasoning: Brief explanation.
-
-- Do NOT include any extra text, comments, or explanations outside the markdown block.
-- Do NOT use code blocks, markdown headers, or any formatting other than the above.
-
-EXAMPLE OUTPUT:
-RESPONSE:
-The follow-up directly answers a pending question.
-
-CONTEXT:
-is_contextually_relevant: true
-reasoning: The follow-up directly answers a pending question.
-"""
+        prompt_path = os.path.join(os.path.dirname(__file__), 'prompts', 'context_agent_prompt.txt')
+        with open(prompt_path, 'r', encoding='utf-8') as f:
+            system_prompt = f.read()
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),
             ("human", """PENDING QUESTIONS:\n{pending_questions}\n\nUSER FOLLOW-UP:\n{user_followup}""")

@@ -10,6 +10,7 @@ from src.core.session_manager import SessionManager
 from src.core.storage_manager import StorageManager
 from src.utils.logger import setup_logger
 from src.agents.question_analysis_agent import QuestionAnalysisAgent
+import os
 
 logger = setup_logger(__name__)
 
@@ -23,48 +24,15 @@ class POAgent:
             temperature=0.7,  # Higher temperature for creative responses
             num_ctx=4096,  # Larger context window for conversation history
         )
-        
+        prompt_path = os.path.join(os.path.dirname(__file__), 'prompts', 'po_agent_prompt.txt')
+        with open(prompt_path, 'r', encoding='utf-8') as f:
+            system_prompt = f.read()
         # Main conversation prompt
         self.prompt = ChatPromptTemplate.from_messages([
-            ("system", """You are an AI-powered Product Owner Assistant focused on clarifying software features and generating documentation. When a user describes a feature:
-            1. Analyze the feature and, if vague, ask up to 3 specific clarifying questions.
-            2. Your response MUST follow this EXACT format with no additional text before or after:
-            
-            RESPONSE:
-            [Your conversational response to the user - DO NOT include any questions here]
-
-            PENDING QUESTIONS:
-            [List your clarifying questions here, one per line starting with -]
-
-            MARKDOWN:
-            # Feature: [Feature Name]
-
-            ## Description
-            [Detailed description of the feature and its purpose]
-
-            ## Acceptance Criteria
-            [List of specific, testable criteria that define when the feature is complete]
-
-            ## Backend Changes
-            [List of required backend changes, or "No changes needed" if none required]
-
-            ## Frontend Changes
-            [List of required frontend changes, or "No changes needed" if none required]
-
-            CRITICAL FORMAT REQUIREMENTS: 
-            - You MUST include the word "MARKDOWN:" before your markdown content
-            - You MUST include the word "RESPONSE:" before your conversational response
-            - You MUST include the words "PENDING QUESTIONS:" before your questions
-            - Do not add any text before RESPONSE or after the markdown section
-            - Do not include any conversational elements or additional explanations
-            - Keep the RESPONSE conversational but without questions
-            - Put ALL clarifying questions in the PENDING QUESTIONS section only
-            - Use only - for bullet points in PENDING QUESTIONS
-            - The MARKDOWN: section must start with "# Feature:" followed by the feature name"""),
+            ("system", system_prompt),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}")
         ])
-        
         self.chain = self.prompt | self.llm
         self.session_manager = SessionManager()
         self.storage_manager = StorageManager()
