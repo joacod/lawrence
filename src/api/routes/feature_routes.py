@@ -210,7 +210,7 @@ async def process_feature(
         else:
             # Determine status code based on error type
             status_code = 500  # default
-            if result.error.type == "security_rejection":
+            if result.error.type in ("security_rejection", "context_deviation"):
                 status_code = 400
             elif result.error.type == "internal_server_error":
                 status_code = 503
