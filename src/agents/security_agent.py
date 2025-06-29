@@ -1,4 +1,3 @@
-import json
 import re
 import os
 from typing import Optional, Dict, List
@@ -32,7 +31,6 @@ class SecurityAgent:
     def _extract_security_from_markdown(self, text: str) -> dict:
         """Extract SECURITY section from markdown block and convert to dict."""
         # Find SECURITY section
-        import re
         match = re.search(r'SECURITY:\s*\n(.*?)(?=\n\w+:|$)', text, re.DOTALL)
         if not match:
             raise ValueError("No SECURITY section found in response")

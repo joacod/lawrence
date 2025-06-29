@@ -1,4 +1,3 @@
-import json
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama.chat_models import ChatOllama
 from src.config.settings import settings
