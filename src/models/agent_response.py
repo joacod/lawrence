@@ -16,6 +16,8 @@ class AgentSuccessData(BaseModel):
     response: str
     markdown: str
     questions: List[QuestionData]
+    answered_questions: int = 0
+    total_questions: int = 0
 
 class AgentError(BaseModel):
     """Structure for agent errors"""

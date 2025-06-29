@@ -69,7 +69,9 @@ class AgentService:
                     markdown=markdown,
                     questions=questions,
                     created_at=created_at,
-                    updated_at=updated_at
+                    updated_at=updated_at,
+                    answered_questions=answered_questions,
+                    total_questions=total_questions
                 )
             )
         except Exception as e:
