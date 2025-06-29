@@ -9,6 +9,7 @@ from src.utils.response_parser import parse_response_to_json
 from src.core.session_manager import SessionManager
 from src.core.storage_manager import StorageManager
 from src.utils.logger import setup_logger
+from src.agents.question_analysis_agent import QuestionAnalysisAgent
 
 logger = setup_logger(__name__)
 
@@ -67,25 +68,26 @@ class POAgent:
         self.chain = self.prompt | self.llm
         self.session_manager = SessionManager()
         self.storage_manager = StorageManager()
+        self.question_analysis_agent = QuestionAnalysisAgent()
 
     async def process_feature(self, feature: str, session_id: str | None = None) -> tuple[str, str, str, str, list, int, int, datetime, datetime]:
         session_id = self.session_manager.create_session(session_id)
         created_at, updated_at = self.session_manager.get_session_timestamps(session_id)
         chat_history = self.session_manager.get_chat_history(session_id)
 
-        # Analyze user input for answers/disregards to pending questions
+        # Use QuestionAnalysisAgent to update pending questions
         pending_questions = self.storage_manager.get_pending_questions(session_id)
-        answered, disregarded = [], []
         if pending_questions:
-            for q in pending_questions:
-                q_text = q['question'].lower()
-                if q_text in feature.lower():
-                    self.storage_manager.answer_question(session_id, q['question'], feature)
-                    answered.append(q['question'])
-                elif any(kw in feature.lower() for kw in [q['question'].split('?')[0], 'not relevant', 'skip', 'ignore', 'disregard']):
-                    if 'not relevant' in feature.lower() or 'skip' in feature.lower() or 'ignore' in feature.lower() or 'disregard' in feature.lower():
-                        self.storage_manager.disregard_question(session_id, q['question'])
-                        disregarded.append(q['question'])
+            analysis = await self.question_analysis_agent.analyze(pending_questions, feature)
+            for result in analysis:
+                q_text = result.get("question")
+                status = result.get("status")
+                user_answer = result.get("user_answer")
+                if status == "answered":
+                    self.storage_manager.answer_question(session_id, q_text, user_answer or feature)
+                elif status == "disregarded":
+                    self.storage_manager.disregard_question(session_id, q_text)
+                # If pending, do nothing
 
         try:
             logger.info("Getting conversational response from model")

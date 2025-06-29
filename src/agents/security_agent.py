@@ -20,7 +20,7 @@ class SecurityAgent:
             num_ctx=2048,  # Context window size
         )
         
-        system_prompt = """You are a strict Security Agent for a Software Product Management Enhancement System. Your primary responsibility is to evaluate requests for relevance to software product management, development, or company operations.
+        system_prompt = """You are a strict Security Agent for a Software Product Management Enhancement System. Your ONLY job is to reject requests that are NOT related to software or product management. You do NOT answer questions or evaluate context—just filter out irrelevant requests.
 
 CONTEXT: This system is designed to help companies with software product management and development processes. It is NOT a general question-answering system.
 
@@ -41,23 +41,30 @@ VALID REQUESTS must be explicitly related to:
 14. DevOps and deployment processes
 15. Software integration requirements
 
-CONTEXT-AWARE EVALUATION:
-- If this is a follow-up request to an existing feature, evaluate it in the context of the original feature
-- Follow-up requests that expand, clarify, or add details to the original feature should be ACCEPTED
-- Consider the original feature's domain and accept related technical specifications, requirements, or enhancements
-- Examples of valid follow-ups:
-  * Original: "login system" → Follow-up: "password strength validation" (ACCEPT)
-  * Original: "login system" → Follow-up: "two-factor authentication" (ACCEPT)
-  * Original: "login system" → Follow-up: "password reset functionality" (ACCEPT)
-  * Original: "user dashboard" → Follow-up: "add charts and graphs" (ACCEPT)
-  * Original: "user dashboard" → Follow-up: "real-time data updates" (ACCEPT)
-  * Original: "payment system" → Follow-up: "support for multiple currencies" (ACCEPT)
-  * Original: "payment system" → Follow-up: "payment gateway integration" (ACCEPT)
-  * Original: "notification system" → Follow-up: "email and SMS notifications" (ACCEPT)
-  * Original: "notification system" → Follow-up: "push notifications" (ACCEPT)
-  * Original: "user profile" → Follow-up: "profile picture upload" (ACCEPT)
-  * Original: "search functionality" → Follow-up: "advanced filters" (ACCEPT)
-  * Original: "reporting system" → Follow-up: "export to PDF" (ACCEPT)
+IMPORTANT: Any request for a new feature, change, or removal in a software product should be ACCEPTED, even if phrased simply or informally (e.g., "I want a login system", "Add a dashboard", "No password reset", "Remove export to PDF"). Negative or restrictive requirements (e.g., "no two-factor authentication", "do not allow password reset", "no additional security measures") are valid software product requirements and should be ACCEPTED.
+
+EXAMPLES (ACCEPT):
+User: "I want a login system with email and password." → ACCEPT
+User: "Add a dashboard." → ACCEPT
+User: "Remove export to PDF." → ACCEPT
+User: "No password reset." → ACCEPT
+User: "Just email and password, nothing else." → ACCEPT
+User: "No two-factor authentication required." → ACCEPT
+User: "We do not want password reset." → ACCEPT
+User: "No additional security measures." → ACCEPT
+User: "Add a login system." → ACCEPT
+User: "Remove the export to PDF feature." → ACCEPT
+
+EXAMPLES (REJECT):
+User: "Who was the first president of the United States?" → REJECT
+User: "How do I prepare lasagna?" → REJECT
+User: "What's the weather?" → REJECT
+User: "Tell me a joke." → REJECT
+User: "What is the capital of France?" → REJECT
+User: "How do I fix my car?" → REJECT
+User: "Give me a recipe for bread." → REJECT
+User: "What happened in World War II?" → REJECT
+User: "How do I lose weight?" → REJECT
 
 AUTOMATICALLY REJECT:
 - General knowledge questions
@@ -76,13 +83,11 @@ AUTOMATICALLY REJECT:
 - Any request not explicitly related to software product management
 
 EVALUATION RULES:
-1. When in doubt, REJECT the request
-2. The request must EXPLICITLY mention software, product, development, or technical aspects
-3. Reject vague requests that could be interpreted as non-software related
-4. Require clear software product management context
-5. Zero tolerance for non-software related queries
-6. Consider the original feature context when evaluating follow-ups
-7. Accept technical specifications, requirements, and enhancements related to the original feature
+1. When in doubt, ACCEPT the request if it could reasonably be about a software product or feature.
+2. The request must EXPLICITLY mention software, product, development, or technical aspects, or clearly describe a feature, change, or removal.
+3. Reject vague requests that could be interpreted as non-software related.
+4. Require clear software product management context.
+5. Zero tolerance for non-software related queries.
 
 IMPORTANT: Your response MUST be a valid JSON object with EXACTLY these fields:
 {{
@@ -91,7 +96,7 @@ IMPORTANT: Your response MUST be a valid JSON object with EXACTLY these fields:
     "reasoning": "Brief explanation focusing on why it was rejected or accepted"
 }}
 
-DO NOT include any other text before or after the JSON. The response must be ONLY the JSON object."""
+DO NOT include any other text before or after the JSON. DO NOT use code blocks, markdown, or ```json. The response must be ONLY the JSON object."""
 
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),
@@ -119,50 +124,18 @@ DO NOT include any other text before or after the JSON. The response must be ONL
             cleaned_text = cleaned_text.replace("True", "true").replace("False", "false")
             return json.loads(cleaned_text)
 
-    def _is_contextually_relevant(self, original_feature: str, followup_request: str) -> bool:
-        """
-        Returns True if the follow-up request is contextually relevant to the original feature.
-        Uses simple keyword overlap as a heuristic.
-        """
-        original_keywords = set(original_feature.lower().split())
-        followup_keywords = set(followup_request.lower().split())
-        overlap = original_keywords.intersection(followup_keywords)
-        # If there is any overlap, consider it relevant (simple heuristic)
-        return len(overlap) > 0
-
     async def evaluate_request(self, user_input: str, session_context: Optional[Dict] = None) -> SecurityResponse:
         """
         Evaluate if the user input is a valid software product management related request.
-        
         Args:
             user_input (str): The user's input text to evaluate
-            session_context (Optional[Dict]): Context about the current session including original feature title
-            
+            session_context (Optional[Dict]): Context about the current session (ignored for security check)
         Returns:
             SecurityResponse: Object containing the evaluation results
         """
         logger.info("Security agent evaluating request")
-        
-        # Prepare the input with context if available
-        if session_context and session_context.get('title'):
-            original_feature = session_context['title']
-            # Contextual validation: check if follow-up is relevant
-            if not self._is_contextually_relevant(original_feature, user_input):
-                logger.info("Follow-up request deviates from original feature context.")
-                # Return a special response to prompt for clarification or new feature
-                return SecurityResponse(
-                    is_feature_request=False,
-                    confidence=1.0,
-                    reasoning="Your follow-up request does not appear to relate to the original feature. Please clarify your request or start a new feature."
-                )
-            contextual_input = f"""CONTEXT: This is a follow-up request to an existing feature.\n\nORIGINAL FEATURE: {original_feature}\n\nCURRENT REQUEST: {user_input}\n\nPlease evaluate if the current request is related to or enhances the original feature."""
-            logger.info(f"Evaluating with context - Original: {original_feature}")
-        else:
-            contextual_input = user_input
-            logger.info("Evaluating without context")
-        
-        result = await self.chain.ainvoke({"input": contextual_input})
-        
+        # Only check if the request is a valid software product management request
+        result = await self.chain.ainvoke({"input": user_input})
         # Try to parse the JSON response
         try:
             response_data = self._extract_json_from_text(result.content)
@@ -173,7 +146,6 @@ DO NOT include any other text before or after the JSON. The response must be ONL
                 confidence=1.0,
                 reasoning="Failed to parse security evaluation response"
             )
-        
         # Validate required fields
         if not all(k in response_data for k in ["is_feature_request", "confidence", "reasoning"]):
             logger.error(f"Invalid response format: {response_data}")
@@ -182,7 +154,6 @@ DO NOT include any other text before or after the JSON. The response must be ONL
                 confidence=1.0,
                 reasoning="Invalid security evaluation response format"
             )
-        
         return SecurityResponse(
             is_feature_request=response_data["is_feature_request"],
             confidence=float(response_data["confidence"]),

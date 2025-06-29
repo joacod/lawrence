@@ -16,40 +16,45 @@ class ContextAgent:
             num_ctx=2048,
         )
         system_prompt = """
-You are a Context Validation Agent for a Software Product Management system. Your job is to determine if a user's follow-up request is contextually relevant to the current feature session.
+You are a Context Validation Agent for a Product Owner AI system.
 
 You will be given:
-- The full session history (including all user and assistant messages, questions, answers, and their status)
-- The user's follow-up request
+- The current feature description
+- The list of pending clarifying questions
+- The user's follow-up message
 
 RULES:
-- If the follow-up is a direct answer to any pending or previously asked question, it is contextually relevant. This includes both positive and negative answers (e.g., "no multi-factor authentication" is a valid answer to "Will the system support multi-factor authentication?").
+- If the follow-up is a direct answer (including a negative, paraphrased, or partial answer) to any pending question, it is contextually relevant.
 - If the follow-up adds, clarifies, or modifies details about the original feature, it is contextually relevant.
 - If the follow-up is unrelated to the feature or questions, it is NOT contextually relevant.
 
 EXAMPLES:
-- Question: "Will the system support multi-factor authentication?"  
-  Follow-up: "No multi-factor authentication"  
-  → Contextually relevant (negative answer)
-- Question: "Should we allow users to reset their passwords?"  
-  Follow-up: "Yes, allow password reset"  
-  → Contextually relevant (positive answer)
-- Question: "Should we allow users to reset their passwords?"  
-  Follow-up: "I want a dashboard with charts"  
-  → NOT contextually relevant
+Pending: "Will there be any additional authentication factors required, like two-factor authentication or biometrics?"
+User: "No additional authentication factors required."
+→ Contextually relevant (negative answer)
 
-Present the session history as a readable conversation log.
+Pending: "Will there be any additional authentication factors required, like two-factor authentication or biometrics?"
+User: "Just email and password, nothing else."
+→ Contextually relevant (negative answer)
 
-Your response MUST be a valid JSON object with EXACTLY these fields:
+Pending: "Will there be any additional authentication factors required, like two-factor authentication or biometrics?"
+User: "Yes, add two-factor authentication using SMS."
+→ Contextually relevant (positive answer)
+
+Pending: "Will there be any additional authentication factors required, like two-factor authentication or biometrics?"
+User: "I want a dashboard with charts."
+→ NOT contextually relevant
+
+Your response MUST be a valid JSON object:
 {{
   "is_contextually_relevant": true,
-  "reasoning": "Brief explanation of your decision."
+  "reasoning": "Brief explanation."
 }}
 DO NOT include any other text before or after the JSON.
 """
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),
-            ("human", """SESSION HISTORY:\n{session_history}\n\nUSER FOLLOW-UP: {user_followup}""")
+            ("human", """PENDING QUESTIONS:\n{pending_questions}\n\nUSER FOLLOW-UP:\n{user_followup}""")
         ])
         self.chain = self.prompt | self.llm
 
@@ -61,40 +66,20 @@ DO NOT include any other text before or after the JSON.
         except Exception:
             raise ValueError(f"Could not extract JSON from: {text}")
 
-    def _format_session_history(self, session_history: dict) -> str:
-        # Format the session history for readability
-        lines = []
-        for msg in session_history.get("conversation", []):
-            if msg["type"] == "user":
-                lines.append(f"User: {msg['content']}")
-            elif msg["type"] == "assistant":
-                lines.append(f"Assistant: {msg.get('response', '')}")
-                if msg.get("questions"):
-                    for q in msg["questions"]:
-                        qtext = q["question"] if isinstance(q, dict) else str(q)
-                        status = q.get("status", "pending") if isinstance(q, dict) else "pending"
-                        answer = q.get("user_answer") if isinstance(q, dict) else None
-                        lines.append(f"  - Q: {qtext} (status: {status})" + (f" | Answer: {answer}" if answer else ""))
-        return "\n".join(lines)
+    def _format_pending_questions(self, session_history: dict) -> str:
+        # Only show the most recent assistant's pending questions
+        for msg in reversed(session_history.get("conversation", [])):
+            if msg["type"] == "assistant" and msg.get("questions"):
+                return "\n".join([
+                    f"- {q['question']} (status: {q.get('status', 'pending')})" for q in msg["questions"]
+                ])
+        return ""
 
     async def evaluate_context(self, session_history: dict, user_followup: str) -> dict:
         logger.info("Context agent evaluating follow-up context")
-        formatted_history = self._format_session_history(session_history)
-        # Fallback: if follow-up contains 'no' or 'not' and matches a pending question subject, treat as relevant
-        for msg in session_history.get("conversation", []):
-            if msg["type"] == "assistant" and msg.get("questions"):
-                for q in msg["questions"]:
-                    q_main = q["question"].split('?')[0].strip().lower() if isinstance(q, dict) else str(q).split('?')[0].strip().lower()
-                    status = q.get("status", "pending") if isinstance(q, dict) else "pending"
-                    if status == 'pending' and (
-                        (q_main in user_followup.lower() and any(neg in user_followup.lower() for neg in ['no', 'not']))
-                    ):
-                        return {
-                            "is_contextually_relevant": True,
-                            "reasoning": "Follow-up is a direct (negative) answer to a pending question."
-                        }
+        pending_questions_str = self._format_pending_questions(session_history)
         result = await self.chain.ainvoke({
-            "session_history": formatted_history,
+            "pending_questions": pending_questions_str,
             "user_followup": user_followup
         })
         try:
