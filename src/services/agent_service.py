@@ -4,6 +4,7 @@ from src.agents.po_agent import POAgent
 from src.core.storage_manager import StorageManager
 from src.models.agent_response import AgentResponse, AgentSuccessData, AgentError
 from src.utils.logger import setup_logger
+from src.agents.context_agent import ContextAgent
 
 logger = setup_logger(__name__)
 
@@ -12,6 +13,7 @@ class AgentService:
         self.security_agent = SecurityAgent()
         self.po_agent = POAgent()
         self.storage = StorageManager()
+        self.context_agent = ContextAgent()
 
     async def process_feature(self, feature: str, session_id: str | None = None) -> AgentResponse:
         """
@@ -26,11 +28,33 @@ class AgentService:
             
             # Get session context if this is a follow-up request
             session_context = None
+            original_feature = None
+            pending_questions = []
+            session_history = None
             if session_id and self.storage.session_exists(session_id):
                 session_context = {
                     'title': self.storage.get_session_title(session_id)
                 }
+                original_feature = self.storage.get_session_title(session_id)
+                # Get all questions for context agent (not just pending)
+                pending_questions = self.storage.get_questions(session_id)
+                session_history = self.storage.get_all_session_data(session_id)
                 logger.info(f"Using session context: {session_context['title']}")
+            
+            # Context agent check (if session context exists)
+            if session_history:
+                context_result = await self.context_agent.evaluate_context(
+                    session_history=session_history,
+                    user_followup=feature
+                )
+                if not context_result.get("is_contextually_relevant", False):
+                    logger.info("Context agent rejected follow-up as not relevant to session context.")
+                    return AgentResponse(
+                        error=AgentError(
+                            type="context_deviation",
+                            message="Your follow-up request does not appear to relate to the original feature. Please clarify your request or start a new feature."
+                        )
+                    )
             
             security_result = await self.security_agent.evaluate_request(feature, session_context)
             
@@ -61,7 +85,7 @@ class AgentService:
             po_result = await self.po_agent.process_feature(feature, session_id)
             
             # Extract results from PO agent
-            session_id, title, response, markdown, questions, created_at, updated_at = po_result
+            session_id, title, response, markdown, questions, total_questions, answered_questions, created_at, updated_at = po_result
             
             return AgentResponse(
                 data=AgentSuccessData(
