@@ -36,6 +36,17 @@ class AgentService:
             
             if not security_result.is_feature_request:
                 logger.info("Request rejected by security agent")
+                # Check for context deviation
+                if (
+                    security_result.reasoning and
+                    "clarify your request or start a new feature" in security_result.reasoning.lower()
+                ):
+                    return AgentResponse(
+                        error=AgentError(
+                            type="context_deviation",
+                            message="Your follow-up request does not appear to relate to the original feature. Please clarify your request or start a new feature."
+                        )
+                    )
                 return AgentResponse(
                     error=AgentError(
                         type="security_rejection",
