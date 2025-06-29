@@ -89,14 +89,29 @@ EVALUATION RULES:
 4. Require clear software product management context.
 5. Zero tolerance for non-software related queries.
 
-IMPORTANT: Your response MUST be a valid JSON object with EXACTLY these fields:
-{{
-    "is_feature_request": false,
-    "confidence": 0.95,
-    "reasoning": "Brief explanation focusing on why it was rejected or accepted"
-}}
+IMPORTANT: Your response MUST be a markdown block with the following format:
+RESPONSE:
+[Short summary of the evaluation result.]
 
-DO NOT include any other text before or after the JSON. DO NOT use code blocks, markdown, or ```json. The response must be ONLY the JSON object."""
+SECURITY:
+is_feature_request: true or false
+confidence: 0.95
+reasoning: Brief explanation focusing on why it was rejected or accepted.
+
+- The confidence value MUST be a number between 0 and 1 (e.g., 0.95).
+- Do NOT use words, phrases, or explanations in place of numbers in the confidence field.
+- Do NOT include any extra text, comments, or explanations outside the markdown block.
+- Do NOT use code blocks, markdown headers, or any formatting other than the above.
+
+EXAMPLE OUTPUT:
+RESPONSE:
+The request is a clear software product feature requirement.
+
+SECURITY:
+is_feature_request: true
+confidence: 0.98
+reasoning: The request is a clear software product feature requirement.
+"""
 
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),
@@ -105,24 +120,32 @@ DO NOT include any other text before or after the JSON. DO NOT use code blocks, 
         
         self.chain = self.prompt | self.llm
 
-    def _extract_json_from_text(self, text: str) -> dict:
-        """Extract JSON from text, handling common formatting issues."""
-        # Try to find JSON-like structure in the text
-        json_match = re.search(r'\{[^}]+\}', text)
-        if not json_match:
-            raise ValueError("No JSON object found in response")
-            
+    def _extract_security_from_markdown(self, text: str) -> dict:
+        """Extract SECURITY section from markdown block and convert to dict."""
+        # Find SECURITY section
+        import re
+        match = re.search(r'SECURITY:\s*\n(.*?)(?=\n\w+:|$)', text, re.DOTALL)
+        if not match:
+            raise ValueError("No SECURITY section found in response")
+        section = match.group(1)
+        # Parse key-value pairs
+        result = {}
+        for line in section.splitlines():
+            if ':' in line:
+                key, value = line.split(':', 1)
+                result[key.strip()] = value.strip()
+        # Type conversions
+        is_feature_request = result.get('is_feature_request', '').lower() == 'true'
         try:
-            # Try to parse the matched JSON
-            return json.loads(json_match.group())
-        except json.JSONDecodeError:
-            # If that fails, try to clean up common formatting issues
-            cleaned_text = json_match.group()
-            # Replace single quotes with double quotes
-            cleaned_text = cleaned_text.replace("'", '"')
-            # Ensure boolean values are lowercase
-            cleaned_text = cleaned_text.replace("True", "true").replace("False", "false")
-            return json.loads(cleaned_text)
+            confidence = float(result.get('confidence', 1.0))
+        except Exception:
+            confidence = 1.0
+        reasoning = result.get('reasoning', '')
+        return {
+            "is_feature_request": is_feature_request,
+            "confidence": confidence,
+            "reasoning": reasoning
+        }
 
     async def evaluate_request(self, user_input: str, session_context: Optional[Dict] = None) -> SecurityResponse:
         """
@@ -134,11 +157,9 @@ DO NOT include any other text before or after the JSON. DO NOT use code blocks, 
             SecurityResponse: Object containing the evaluation results
         """
         logger.info("Security agent evaluating request")
-        # Only check if the request is a valid software product management request
         result = await self.chain.ainvoke({"input": user_input})
-        # Try to parse the JSON response
         try:
-            response_data = self._extract_json_from_text(result.content)
+            response_data = self._extract_security_from_markdown(result.content)
         except Exception as e:
             logger.error(f"Failed to parse model response: {result.content}")
             return SecurityResponse(
@@ -146,7 +167,6 @@ DO NOT include any other text before or after the JSON. DO NOT use code blocks, 
                 confidence=1.0,
                 reasoning="Failed to parse security evaluation response"
             )
-        # Validate required fields
         if not all(k in response_data for k in ["is_feature_request", "confidence", "reasoning"]):
             logger.error(f"Invalid response format: {response_data}")
             return SecurityResponse(

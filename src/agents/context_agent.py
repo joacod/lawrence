@@ -45,12 +45,24 @@ Pending: "Will there be any additional authentication factors required, like two
 User: "I want a dashboard with charts."
 → NOT contextually relevant
 
-Your response MUST be a valid JSON object:
-{{
-  "is_contextually_relevant": true,
-  "reasoning": "Brief explanation."
-}}
-DO NOT include any other text before or after the JSON.
+Your response MUST be a markdown block with the following format:
+RESPONSE:
+[Short summary of the context evaluation.]
+
+CONTEXT:
+is_contextually_relevant: true or false
+reasoning: Brief explanation.
+
+- Do NOT include any extra text, comments, or explanations outside the markdown block.
+- Do NOT use code blocks, markdown headers, or any formatting other than the above.
+
+EXAMPLE OUTPUT:
+RESPONSE:
+The follow-up directly answers a pending question.
+
+CONTEXT:
+is_contextually_relevant: true
+reasoning: The follow-up directly answers a pending question.
 """
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),
@@ -58,13 +70,24 @@ DO NOT include any other text before or after the JSON.
         ])
         self.chain = self.prompt | self.llm
 
-    def _extract_json_from_text(self, text: str) -> dict:
-        try:
-            start = text.index('{')
-            end = text.rindex('}') + 1
-            return json.loads(text[start:end])
-        except Exception:
-            raise ValueError(f"Could not extract JSON from: {text}")
+    def _extract_context_from_markdown(self, text: str) -> dict:
+        """Extract CONTEXT section from markdown block and convert to dict."""
+        import re
+        match = re.search(r'CONTEXT:\s*\n(.*?)(?=\n\w+:|$)', text, re.DOTALL)
+        if not match:
+            raise ValueError("No CONTEXT section found in response")
+        section = match.group(1)
+        result = {}
+        for line in section.splitlines():
+            if ':' in line:
+                key, value = line.split(':', 1)
+                result[key.strip()] = value.strip()
+        is_contextually_relevant = result.get('is_contextually_relevant', '').lower() == 'true'
+        reasoning = result.get('reasoning', '')
+        return {
+            "is_contextually_relevant": is_contextually_relevant,
+            "reasoning": reasoning
+        }
 
     def _format_pending_questions(self, session_history: dict) -> str:
         # Only show the most recent assistant's pending questions
@@ -83,7 +106,7 @@ DO NOT include any other text before or after the JSON.
             "user_followup": user_followup
         })
         try:
-            response_data = self._extract_json_from_text(result.content)
+            response_data = self._extract_context_from_markdown(result.content)
         except Exception as e:
             logger.error(f"Failed to parse context agent response: {result.content}")
             return {

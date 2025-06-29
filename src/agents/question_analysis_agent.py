@@ -48,7 +48,32 @@ Questions:
 User: "I want a dashboard with charts."
 Output: [{{"question": "...", "status": "pending", "user_answer": null}}]
 
-Your response MUST be a valid JSON array as described above. DO NOT include any other text before or after the JSON.
+Your response MUST be a markdown block with the following format:
+RESPONSE:
+[Short summary of the question analysis.]
+
+QUESTIONS:
+- question: "..."
+  status: "..."
+  user_answer: "..."
+- question: "..."
+  status: "..."
+  user_answer: null
+
+- Do NOT include any extra text, comments, or explanations outside the markdown block.
+- Do NOT use code blocks, markdown headers, or any formatting other than the above.
+
+EXAMPLE OUTPUT:
+RESPONSE:
+The user answered the first question and disregarded the second.
+
+QUESTIONS:
+- question: "Will there be any additional authentication factors required, like two-factor authentication or biometrics?"
+  status: "answered"
+  user_answer: "yes, using SMS"
+- question: "Is there a dashboard?"
+  status: "pending"
+  user_answer: null
 """
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),
@@ -56,13 +81,32 @@ Your response MUST be a valid JSON array as described above. DO NOT include any 
         ])
         self.chain = self.prompt | self.llm
 
-    def _extract_json_from_text(self, text: str):
-        try:
-            start = text.index('[')
-            end = text.rindex(']') + 1
-            return json.loads(text[start:end])
-        except Exception:
-            raise ValueError(f"Could not extract JSON array from: {text}")
+    def _extract_questions_from_markdown(self, text: str) -> list:
+        """Extract QUESTIONS section from markdown block and convert to list of dicts."""
+        import re
+        match = re.search(r'QUESTIONS:\s*\n(.*?)(?=\n\w+:|$)', text, re.DOTALL)
+        if not match:
+            raise ValueError("No QUESTIONS section found in response")
+        section = match.group(1)
+        questions = []
+        current = {}
+        for line in section.splitlines():
+            line = line.strip()
+            if line.startswith('- question:'):
+                if current:
+                    questions.append(current)
+                current = {"question": line[len('- question:'):].strip().strip('"')}
+            elif line.startswith('status:'):
+                current["status"] = line[len('status:'):].strip().strip('"')
+            elif line.startswith('user_answer:'):
+                val = line[len('user_answer:'):].strip()
+                if val.lower() == 'null':
+                    current["user_answer"] = None
+                else:
+                    current["user_answer"] = val.strip('"')
+        if current:
+            questions.append(current)
+        return questions
 
     async def analyze(self, pending_questions: list, user_followup: str) -> list:
         logger.info("Question analysis agent evaluating user follow-up against pending questions")
@@ -72,7 +116,7 @@ Your response MUST be a valid JSON array as described above. DO NOT include any 
             "user_followup": user_followup
         })
         try:
-            return self._extract_json_from_text(result.content)
+            return self._extract_questions_from_markdown(result.content)
         except Exception as e:
             logger.error(f"Failed to parse question analysis agent response: {result.content}")
             return [] 
