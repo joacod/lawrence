@@ -7,6 +7,7 @@ from langchain_ollama.chat_models import ChatOllama
 from src.config.settings import settings
 from src.utils.response_parser import parse_response_to_json
 from src.core.session_manager import SessionManager
+from src.core.storage_manager import StorageManager
 from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -65,12 +66,29 @@ class POAgent:
         
         self.chain = self.prompt | self.llm
         self.session_manager = SessionManager()
+        self.storage_manager = StorageManager()
 
     async def process_feature(self, feature: str, session_id: str | None = None) -> tuple[str, str, str, str, list[str], datetime, datetime]:
         session_id = self.session_manager.create_session(session_id)
         created_at, updated_at = self.session_manager.get_session_timestamps(session_id)
         
         chat_history = self.session_manager.get_chat_history(session_id)
+        
+        # Analyze user input for answers/disregards to pending questions
+        pending_questions = self.storage_manager.get_pending_questions(session_id)
+        answered, disregarded = [], []
+        if pending_questions:
+            # Heuristic: if user input contains answer to a question, mark as answered
+            # If user says 'not relevant', 'skip', or similar, mark as disregarded
+            for q in pending_questions:
+                q_text = q['question'].lower()
+                if q_text in feature.lower():
+                    self.storage_manager.answer_question(session_id, q['question'], feature)
+                    answered.append(q['question'])
+                elif any(kw in feature.lower() for kw in [q['question'].split('?')[0], 'not relevant', 'skip', 'ignore', 'disregard']):
+                    if 'not relevant' in feature.lower() or 'skip' in feature.lower() or 'ignore' in feature.lower() or 'disregard' in feature.lower():
+                        self.storage_manager.disregard_question(session_id, q['question'])
+                        disregarded.append(q['question'])
         
         try:
             # Get conversational response
@@ -81,7 +99,6 @@ class POAgent:
             })
             logger.info("Model raw response:")
             logger.info(result.content)
-            
             try:
                 # Try to parse the response into JSON
                 output = parse_response_to_json(result.content)
@@ -92,7 +109,6 @@ class POAgent:
                 logger.error("---START OF FAILED RESPONSE---")
                 logger.error(result.content)
                 logger.error("---END OF FAILED RESPONSE---")
-                
                 # Retry with a more explicit prompt
                 logger.info("Retrying with explicit format reminder")
                 retry_prompt = f"""Please provide your response in the EXACT format specified. You MUST include all section headers:
@@ -108,15 +124,12 @@ MARKDOWN:
 
 Previous response that needs to be reformatted:
 {result.content}"""
-                
                 retry_result = await self.chain.ainvoke({
                     "chat_history": chat_history,
                     "input": retry_prompt
                 })
                 logger.info("Retry model response:")
                 logger.info(retry_result.content)
-                
-                # Try parsing the retry response
                 try:
                     output = parse_response_to_json(retry_result.content)
                 except ValueError as e:
@@ -126,21 +139,27 @@ Previous response that needs to be reformatted:
                     logger.error(retry_result.content)
                     logger.error("---END OF FAILED RETRY RESPONSE---")
                     raise
-            
+
+            # Store and update questions in StorageManager
+            new_questions = output.get("questions", [])
+            # If questions are strings, convert to list of dicts
+            if new_questions and isinstance(new_questions[0], str):
+                self.storage_manager.add_questions(session_id, new_questions)
+            elif new_questions and isinstance(new_questions[0], dict):
+                self.storage_manager.set_questions(session_id, new_questions)
+            # Only include pending questions in the next response
+            pending_questions = self.storage_manager.get_pending_questions(session_id)
+            output["questions"] = [q for q in pending_questions]
+
             # Extract title from markdown if this is a new session
             title = self._extract_title_from_markdown(output["markdown"], session_id)
-            
             # Update chat history
             chat_history.append(HumanMessage(content=feature))
             chat_history.append(AIMessage(content=json.dumps(output)))
-            
             if len(chat_history) > settings.MAX_HISTORY_LENGTH:
                 chat_history = chat_history[-settings.MAX_HISTORY_LENGTH:]
-            
             self.session_manager.update_chat_history(session_id, chat_history)
-            
             return session_id, title, output["response"], output["markdown"], output["questions"], created_at, updated_at
-            
         except Exception as e:
             logger.error("Error in process_feature:", exc_info=True)
             logger.error(f"Session ID: {session_id}")

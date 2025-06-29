@@ -11,7 +11,7 @@ from src.models.schemas import (
     FeatureInput, ChatData, ChatProgress, FeatureOverview, 
     Ticket, TicketsData, ConversationMessage
 )
-from src.models.agent_response import AgentResponse, AgentSuccessData, AgentError, SecurityResponse
+from src.models.agent_response import AgentResponse, AgentSuccessData, AgentError, SecurityResponse, QuestionData
 from src.services.agent_service import AgentService
 from src.services.session_service import SessionService
 from src.services.health_service import HealthService
@@ -133,7 +133,10 @@ def sample_chat_data():
     """Sample chat data for testing."""
     return ChatData(
         response="This is a test response",
-        questions=["Question 1?", "Question 2?"],
+        questions=[
+            QuestionData(question="Question 1?", status="pending", user_answer=None),
+            QuestionData(question="Question 2?", status="pending", user_answer=None)
+        ],
         suggestions=None,
         progress=ChatProgress(
             answered_questions=0,
@@ -192,7 +195,10 @@ def sample_agent_success_response():
             updated_at=datetime.now(timezone.utc),
             response="This is a test response",
             markdown="# Feature: User Login System\n\n## Description\nTest description",
-            questions=["Question 1?", "Question 2?"]
+            questions=[
+                QuestionData(question="Question 1?", status="pending", user_answer=None),
+                QuestionData(question="Question 2?", status="pending", user_answer=None)
+            ]
         )
     )
 
@@ -236,7 +242,9 @@ def mock_session_data():
                 "type": "assistant",
                 "response": "I'll help you create a user login system",
                 "markdown": "# Feature: User Login System\n\n## Description\nTest description",
-                "questions": ["What authentication method do you prefer?"],
+                "questions": [
+                    {"question": "What authentication method do you prefer?", "status": "pending", "user_answer": None}
+                ],
                 "timestamp": datetime.now(timezone.utc)
             }
         ]

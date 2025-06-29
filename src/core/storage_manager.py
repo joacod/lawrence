@@ -21,6 +21,7 @@ class StorageManager:
             self._sessions: Dict[str, List] = {}
             self._session_titles: Dict[str, str] = {}
             self._session_timestamps: Dict[str, Dict[str, datetime]] = {}
+            self._session_questions: Dict[str, List[Dict]] = {}  # New: questions per session
             self._initialized = True
 
     # Session operations
@@ -44,6 +45,8 @@ class StorageManager:
                 del self._session_titles[session_id]
             if session_id in self._session_timestamps:
                 del self._session_timestamps[session_id]
+            if session_id in self._session_questions:
+                del self._session_questions[session_id]
             return True
         return False
 
@@ -82,6 +85,58 @@ class StorageManager:
             "updated_at": updated_at
         }
 
+    # Question operations
+    def get_questions(self, session_id: str) -> List[Dict]:
+        """Get all questions for a session"""
+        return self._session_questions.get(session_id, [])
+
+    def set_questions(self, session_id: str, questions: List[Dict]) -> None:
+        """Set the questions list for a session"""
+        self._session_questions[session_id] = questions
+
+    def add_questions(self, session_id: str, new_questions: List[str]) -> None:
+        """Add new questions to the session as pending if not already present"""
+        existing = self._session_questions.get(session_id, [])
+        existing_questions = {q['question'] for q in existing}
+        for q in new_questions:
+            if q not in existing_questions:
+                existing.append({
+                    'question': q,
+                    'status': 'pending',
+                    'user_answer': None
+                })
+        self._session_questions[session_id] = existing
+
+    def answer_question(self, session_id: str, question: str, answer: str) -> None:
+        """Mark a question as answered and store the user's answer"""
+        questions = self._session_questions.get(session_id, [])
+        for q in questions:
+            if q['question'] == question:
+                q['status'] = 'answered'
+                q['user_answer'] = answer
+        self._session_questions[session_id] = questions
+
+    def disregard_question(self, session_id: str, question: str) -> None:
+        """Mark a question as disregarded"""
+        questions = self._session_questions.get(session_id, [])
+        for q in questions:
+            if q['question'] == question:
+                q['status'] = 'disregarded'
+                q['user_answer'] = None
+        self._session_questions[session_id] = questions
+
+    def get_pending_questions(self, session_id: str) -> List[Dict]:
+        """Get all pending questions for a session"""
+        return [q for q in self._session_questions.get(session_id, []) if q['status'] == 'pending']
+
+    def get_answered_questions(self, session_id: str) -> List[Dict]:
+        """Get all answered questions for a session"""
+        return [q for q in self._session_questions.get(session_id, []) if q['status'] == 'answered']
+
+    def get_disregarded_questions(self, session_id: str) -> List[Dict]:
+        """Get all disregarded questions for a session"""
+        return [q for q in self._session_questions.get(session_id, []) if q['status'] == 'disregarded']
+
     # Data retrieval operations
     def get_session_metadata(self, session_id: str) -> Optional[Dict]:
         """Get session metadata (title and timestamps)"""
@@ -97,7 +152,7 @@ class StorageManager:
         }
 
     def get_all_session_data(self, session_id: str) -> Optional[Dict]:
-        """Get all conversation data for a session including full history"""
+        """Get all conversation data for a session including full history and questions"""
         if session_id not in self._sessions:
             return None
         
@@ -144,10 +199,13 @@ class StorageManager:
                             "timestamp": metadata["updated_at"]
                         })
         
+        # Add questions to the session data
+        questions = self._session_questions.get(session_id, [])
         return {
             "session_id": session_id,
             "title": metadata["title"],
             "created_at": metadata["created_at"],
             "updated_at": metadata["updated_at"],
-            "conversation": conversation_data
+            "conversation": conversation_data,
+            "questions": questions
         } 

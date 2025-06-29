@@ -2,6 +2,11 @@ from typing import List, Optional, Literal
 from datetime import datetime
 from pydantic import BaseModel
 
+class QuestionData(BaseModel):
+    question: str
+    status: str
+    user_answer: Optional[str] = None
+
 class AgentSuccessData(BaseModel):
     """Structure for successful agent responses"""
     session_id: Optional[str] = None
@@ -10,7 +15,7 @@ class AgentSuccessData(BaseModel):
     updated_at: datetime
     response: str
     markdown: str
-    questions: List[str]
+    questions: List[QuestionData]
 
 class AgentError(BaseModel):
     """Structure for agent errors"""
