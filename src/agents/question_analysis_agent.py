@@ -24,8 +24,10 @@ You will be given:
 
 For each question:
 - If the user has provided a clear answer, even if paraphrased, set status to "answered" and extract the answer.
-- If the user has clearly disregarded or rejected the question (e.g., says "no", "not needed", "just X", "skip", etc.), set status to "disregarded".
+- If the user has clearly disregarded or rejected the question (e.g., says "no", "not needed", "just X", "skip", "no X required", "no two-factor authentication required", "just email and password, nothing else", "we do not want X", "no additional X", etc.), set status to "disregarded".
 - If the user did not address the question, leave status as "pending".
+
+IMPORTANT: Negative or restrictive requirements (e.g., "no two-factor authentication required", "just email and password, nothing else", "no additional authentication factors", "no password reset", "no additional security measures") should be mapped to 'disregarded' for questions about those features.
 
 EXAMPLES:
 Questions:
@@ -39,7 +41,17 @@ User: "Just email and password, nothing else."
 Output: [{{"question": "...", "status": "disregarded", "user_answer": null}}]
 
 Questions:
-- "Will there be any additional authentication factors required, like two-factor authentication or biometrics?"
+- "Is two-factor authentication required or optional for this system?"
+User: "No two-factor authentication required."
+Output: [{{"question": "...", "status": "disregarded", "user_answer": null}}]
+
+Questions:
+- "Is two-factor authentication required or optional for this system?"
+User: "We do not want two-factor authentication."
+Output: [{{"question": "...", "status": "disregarded", "user_answer": null}}]
+
+Questions:
+- "Is two-factor authentication required or optional for this system?"
 User: "Yes, add two-factor authentication using SMS."
 Output: [{{"question": "...", "status": "answered", "user_answer": "yes, using SMS"}}]
 
@@ -108,15 +120,11 @@ QUESTIONS:
             questions.append(current)
         return questions
 
-    async def analyze(self, pending_questions: list, user_followup: str) -> list:
+    async def analyze(self, pending_questions: list, user_followup: str) -> str:
         logger.info("Question analysis agent evaluating user follow-up against pending questions")
         pending_questions_str = json.dumps(pending_questions, ensure_ascii=False)
         result = await self.chain.ainvoke({
             "pending_questions": pending_questions_str,
             "user_followup": user_followup
         })
-        try:
-            return self._extract_questions_from_markdown(result.content)
-        except Exception as e:
-            logger.error(f"Failed to parse question analysis agent response: {result.content}")
-            return [] 
+        return result.content 

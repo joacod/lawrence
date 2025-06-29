@@ -5,7 +5,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_ollama.chat_models import ChatOllama
 from src.config.settings import settings
-from src.utils.response_parser import parse_response_to_json
+from src.utils.response_parser import parse_response_to_json, parse_questions_section
 from src.core.session_manager import SessionManager
 from src.core.storage_manager import StorageManager
 from src.utils.logger import setup_logger
@@ -78,7 +78,8 @@ class POAgent:
         # Use QuestionAnalysisAgent to update pending questions
         pending_questions = self.storage_manager.get_pending_questions(session_id)
         if pending_questions:
-            analysis = await self.question_analysis_agent.analyze(pending_questions, feature)
+            analysis_markdown = await self.question_analysis_agent.analyze(pending_questions, feature)
+            analysis = parse_questions_section(analysis_markdown)
             for result in analysis:
                 q_text = result.get("question")
                 status = result.get("status")
