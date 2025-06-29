@@ -119,6 +119,17 @@ DO NOT include any other text before or after the JSON. The response must be ONL
             cleaned_text = cleaned_text.replace("True", "true").replace("False", "false")
             return json.loads(cleaned_text)
 
+    def _is_contextually_relevant(self, original_feature: str, followup_request: str) -> bool:
+        """
+        Returns True if the follow-up request is contextually relevant to the original feature.
+        Uses simple keyword overlap as a heuristic.
+        """
+        original_keywords = set(original_feature.lower().split())
+        followup_keywords = set(followup_request.lower().split())
+        overlap = original_keywords.intersection(followup_keywords)
+        # If there is any overlap, consider it relevant (simple heuristic)
+        return len(overlap) > 0
+
     async def evaluate_request(self, user_input: str, session_context: Optional[Dict] = None) -> SecurityResponse:
         """
         Evaluate if the user input is a valid software product management related request.
@@ -135,13 +146,16 @@ DO NOT include any other text before or after the JSON. The response must be ONL
         # Prepare the input with context if available
         if session_context and session_context.get('title'):
             original_feature = session_context['title']
-            contextual_input = f"""CONTEXT: This is a follow-up request to an existing feature.
-
-ORIGINAL FEATURE: {original_feature}
-
-CURRENT REQUEST: {user_input}
-
-Please evaluate if the current request is related to or enhances the original feature."""
+            # Contextual validation: check if follow-up is relevant
+            if not self._is_contextually_relevant(original_feature, user_input):
+                logger.info("Follow-up request deviates from original feature context.")
+                # Return a special response to prompt for clarification or new feature
+                return SecurityResponse(
+                    is_feature_request=False,
+                    confidence=1.0,
+                    reasoning="Your follow-up request does not appear to relate to the original feature. Please clarify your request or start a new feature."
+                )
+            contextual_input = f"""CONTEXT: This is a follow-up request to an existing feature.\n\nORIGINAL FEATURE: {original_feature}\n\nCURRENT REQUEST: {user_input}\n\nPlease evaluate if the current request is related to or enhances the original feature."""
             logger.info(f"Evaluating with context - Original: {original_feature}")
         else:
             contextual_input = user_input

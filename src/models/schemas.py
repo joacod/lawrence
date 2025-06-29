@@ -11,7 +11,7 @@ class FeatureInput(BaseModel):
 
 class AgentOutputError(BaseModel):
     """Structure for agent errors in API"""
-    type: Literal["security_rejection", "parsing_error", "internal_server_error", "not_found"]
+    type: Literal["security_rejection", "parsing_error", "internal_server_error", "not_found", "context_deviation"]
     message: str
 
 # Chat section structure
