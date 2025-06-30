@@ -42,26 +42,22 @@ def extract_questions(text: str) -> List[str]:
     Returns:
         List[str]: List of questions, empty list if no questions found
     """
-    # First try to find explicit PENDING QUESTIONS section
-    match = re.search(r'PENDING QUESTIONS:\n(.*?)(?=\n\nMARKDOWN:)', text, re.DOTALL)
+    # Try to find explicit PENDING QUESTIONS section (robust to whitespace and inline content)
+    match = re.search(r'^[ \t]*PENDING QUESTIONS:[ \t]*(.*?)(?:\n{2,}(?=MARKDOWN:|RESPONSE:)|\n*$)', text, re.DOTALL | re.MULTILINE)
     if match:
         questions_text = match.group(1).strip()
         if questions_text:
-            # Split by lines and clean up
             questions = []
             for line in questions_text.split('\n'):
-                # Remove both * and - bullet points and clean up whitespace
                 line = _clean_bullet_point(line)
                 if line and not line.startswith('PENDING QUESTIONS:'):
                     questions.append(line)
             return questions
-    
     # If no PENDING QUESTIONS section or no questions found, try to extract from response
-    response_match = re.search(r'RESPONSE:\n(.*?)(?=\n\n(?:PENDING QUESTIONS:|MARKDOWN:))', text, re.DOTALL)
+    response_match = re.search(r'^[ \t]*RESPONSE:[ \t]*(.*?)(?:\n{2,}(?=PENDING QUESTIONS:|MARKDOWN:)|\n*$)', text, re.DOTALL | re.MULTILINE)
     if response_match:
         response_text = response_match.group(1).strip()
         return extract_questions_from_response(response_text)
-    
     return []
 
 def parse_markdown_sections(markdown_text: str) -> Dict[str, Union[str, List[str]]]:
@@ -183,22 +179,17 @@ def parse_response_to_json(text: str) -> Dict[str, Union[str, List[str]]]:
             "questions": ["Question 1?", "Question 2?", "Question 3?"]
         }
     """
-    # Extract questions first (either from PENDING QUESTIONS or from response)
     questions = extract_questions(text)
-    
-    # Extract RESPONSE section
-    response_match = re.search(r'RESPONSE:\n(.*?)(?=\n\n(?:PENDING QUESTIONS:|MARKDOWN:))', text, re.DOTALL)
+    # Extract RESPONSE section (robust to whitespace and inline content)
+    response_match = re.search(r'^[ \t]*RESPONSE:[ \t]*(.*?)(?:\n{2,}(?=PENDING QUESTIONS:|MARKDOWN:)|\n*$)', text, re.DOTALL | re.MULTILINE)
     if not response_match:
         raise ValueError("Input text must contain a RESPONSE section")
     response = response_match.group(1).strip()
-    
-    # Extract MARKDOWN section
-    markdown_match = re.search(r'MARKDOWN:\n(.*?)$', text, re.DOTALL)
+    # Extract MARKDOWN section (robust to whitespace and inline content)
+    markdown_match = re.search(r'^[ \t]*MARKDOWN:[ \t]*(.*)$', text, re.DOTALL | re.MULTILINE)
     if not markdown_match:
         raise ValueError("Input text must contain a MARKDOWN section")
     markdown = markdown_match.group(1).strip()
-    
-    # Create the JSON structure
     return {
         "response": response,
         "markdown": markdown,

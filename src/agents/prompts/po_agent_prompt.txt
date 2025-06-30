@@ -32,4 +32,7 @@ CRITICAL FORMAT REQUIREMENTS:
 - Keep the RESPONSE conversational but without questions
 - Put ALL clarifying questions in the PENDING QUESTIONS section only
 - Use only - for bullet points in PENDING QUESTIONS
-- The MARKDOWN: section must start with "# Feature:" followed by the feature name 
+- The MARKDOWN: section must start with "# Feature:" followed by the feature name
+
+ADDITIONAL CRITICAL REQUIREMENT:
+If you leave the RESPONSE section empty, the system will fail. You MUST always provide a meaningful, conversational response in the RESPONSE section. Never leave it blank or just whitespace. This is the most important part of your output. 

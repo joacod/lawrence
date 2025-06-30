@@ -68,6 +68,26 @@ class POAgent:
             logger.info(result.content)
             try:
                 output = parse_response_to_json(result.content)
+                # Ensure RESPONSE is not empty; if it is, retry with explicit reminder
+                if not output["response"].strip():
+                    logger.warning("Model output had empty RESPONSE section. Retrying with explicit format reminder.")
+                    retry_prompt = (
+                        "You MUST provide a non-empty conversational RESPONSE section. "
+                        "If you do not, the system will fail. "
+                        "RESPONSE:\n[Your conversational response to the user - DO NOT include any questions here]\n\n"
+                        "PENDING QUESTIONS:\n[List your clarifying questions here, one per line starting with -]\n\n"
+                        "MARKDOWN:\n[Your markdown content here]\n\n"
+                        f"Previous response that needs to be reformatted:\n{result.content}"
+                    )
+                    retry_result = await self.chain.ainvoke({
+                        "chat_history": chat_history,
+                        "input": retry_prompt
+                    })
+                    logger.info("Retry model response (RESPONSE was empty):")
+                    logger.info(retry_result.content)
+                    output = parse_response_to_json(retry_result.content)
+                    if not output["response"].strip():
+                        output["response"] = "Sorry, I was unable to generate a response. Please try again or rephrase your request."
             except ValueError as e:
                 logger.error("Failed to parse response:", exc_info=True)
                 logger.error("Raw response that failed to parse:")
