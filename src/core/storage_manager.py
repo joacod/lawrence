@@ -241,8 +241,12 @@ class StorageManager:
         }
 
     def list_sessions(self) -> List[Dict[str, str]]:
-        """Return a list of all sessions with session_id and title."""
+        """Return a list of all sessions with session_id, title, and updated_at."""
         return [
-            {"session_id": session_id, "title": self.get_session_title(session_id)}
+            {
+                "session_id": session_id,
+                "title": self.get_session_title(session_id),
+                "updated_at": self._session_timestamps.get(session_id, {}).get("updated_at")
+            }
             for session_id in self._sessions.keys()
         ] 
