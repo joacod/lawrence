@@ -259,4 +259,10 @@ async def clear_session(session_id: str, session_service: SessionService = Depen
     return ClearSessionResponse(
         data=ClearSessionData(message=f"Session {session_id} deleted"),
         error=None
-    ) 
+    )
+
+@router.get("/sessions")
+async def list_sessions(session_service: SessionService = Depends(get_session_service)):
+    """Get a list of all sessions with session_id and title."""
+    sessions = session_service.list_sessions()
+    return sessions 

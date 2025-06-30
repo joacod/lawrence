@@ -238,4 +238,11 @@ class StorageManager:
             "updated_at": metadata["updated_at"],
             "conversation": conversation_data,
             "questions": questions
-        } 
+        }
+
+    def list_sessions(self) -> List[Dict[str, str]]:
+        """Return a list of all sessions with session_id and title."""
+        return [
+            {"session_id": session_id, "title": self.get_session_title(session_id)}
+            for session_id in self._sessions.keys()
+        ] 
