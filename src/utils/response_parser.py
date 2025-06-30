@@ -43,7 +43,7 @@ def extract_questions(text: str) -> List[str]:
         List[str]: List of questions, empty list if no questions found
     """
     # First try to find explicit PENDING QUESTIONS section
-    match = re.search(r'PENDING QUESTIONS:\n(.*?)(?=\n\nMARKDOWN:)', text, re.DOTALL)
+    match = re.search(r'PENDING QUESTIONS:\s*(.*?)(?=MARKDOWN:)', text, re.DOTALL)
     if match:
         questions_text = match.group(1).strip()
         if questions_text:
@@ -57,7 +57,7 @@ def extract_questions(text: str) -> List[str]:
             return questions
     
     # If no PENDING QUESTIONS section or no questions found, try to extract from response
-    response_match = re.search(r'RESPONSE:\n(.*?)(?=\n\n(?:PENDING QUESTIONS:|MARKDOWN:))', text, re.DOTALL)
+    response_match = re.search(r'RESPONSE:\s*(.*?)(?=PENDING QUESTIONS:|MARKDOWN:)', text, re.DOTALL)
     if response_match:
         response_text = response_match.group(1).strip()
         return extract_questions_from_response(response_text)
@@ -183,17 +183,20 @@ def parse_response_to_json(text: str) -> Dict[str, Union[str, List[str]]]:
             "questions": ["Question 1?", "Question 2?", "Question 3?"]
         }
     """
+    # Normalize the text by stripping leading/trailing whitespace and handling line endings
+    text = text.strip()
+    
     # Extract questions first (either from PENDING QUESTIONS or from response)
     questions = extract_questions(text)
     
     # Extract RESPONSE section
-    response_match = re.search(r'RESPONSE:\n(.*?)(?=\n\n(?:PENDING QUESTIONS:|MARKDOWN:))', text, re.DOTALL)
+    response_match = re.search(r'RESPONSE:\s*(.*?)(?=PENDING QUESTIONS:|MARKDOWN:)', text, re.DOTALL)
     if not response_match:
         raise ValueError("Input text must contain a RESPONSE section")
     response = response_match.group(1).strip()
     
     # Extract MARKDOWN section
-    markdown_match = re.search(r'MARKDOWN:\n(.*?)$', text, re.DOTALL)
+    markdown_match = re.search(r'MARKDOWN:\s*(.*?)$', text, re.DOTALL)
     if not markdown_match:
         raise ValueError("Input text must contain a MARKDOWN section")
     markdown = markdown_match.group(1).strip()
