@@ -198,7 +198,12 @@ class StorageManager:
         conversation_data = []
         
         for i, message in enumerate(chat_history):
-            if hasattr(message, 'content') and isinstance(message.content, str):
+            # Handle both mock data (dict) and regular LangChain message objects
+            if isinstance(message, dict):
+                # Mock data format - message is already a dict with the expected structure
+                conversation_data.append(message)
+            elif hasattr(message, 'content') and isinstance(message.content, str):
+                # Regular LangChain message format
                 # Check if this is a user message or AI response
                 if hasattr(message, 'type') and message.type == "human":
                     # User message
