@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional
 from datetime import datetime
 import json
+import os
 
 class StorageManager:
     """
@@ -22,6 +23,35 @@ class StorageManager:
             self._session_titles: Dict[str, str] = {}
             self._session_timestamps: Dict[str, Dict[str, datetime]] = {}
             self._session_questions: Dict[str, List[Dict]] = {}  # New: questions per session
+            # Load initial sessions from mock file if present
+            initial_sessions_path = os.path.join(os.path.dirname(__file__), 'storage_mock', 'initial_sessions.json')
+            if os.path.exists(initial_sessions_path):
+                with open(initial_sessions_path, 'r') as f:
+                    try:
+                        initial_sessions = json.load(f)
+                        for session in initial_sessions:
+                            session_id = session["session_id"]
+                            self._sessions[session_id] = session.get("conversation", [])
+                            self._session_titles[session_id] = session.get("title", "Untitled Feature")
+                            # Parse timestamps as datetime objects
+                            created_at = session.get("created_at")
+                            updated_at = session.get("updated_at")
+                            if created_at and updated_at:
+                                self._session_timestamps[session_id] = {
+                                    "created_at": datetime.fromisoformat(created_at.replace('Z', '+00:00')),
+                                    "updated_at": datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+                                }
+                            # Extract questions from conversation if present
+                            questions = []
+                            for message in session.get("conversation", []):
+                                chat = message.get("chat")
+                                if chat and "questions" in chat:
+                                    for q in chat["questions"]:
+                                        questions.append(q)
+                            if questions:
+                                self._session_questions[session_id] = questions
+                    except Exception as e:
+                        print(f"Failed to load initial sessions: {e}")
             self._initialized = True
 
     # Session operations
@@ -208,4 +238,15 @@ class StorageManager:
             "updated_at": metadata["updated_at"],
             "conversation": conversation_data,
             "questions": questions
-        } 
+        }
+
+    def list_sessions(self) -> List[Dict[str, str]]:
+        """Return a list of all sessions with session_id, title, and updated_at."""
+        return [
+            {
+                "session_id": session_id,
+                "title": self.get_session_title(session_id),
+                "updated_at": self._session_timestamps.get(session_id, {}).get("updated_at")
+            }
+            for session_id in self._sessions.keys()
+        ] 

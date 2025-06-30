@@ -10,4 +10,8 @@ class SessionService:
 
     def get_session_with_conversation(self, session_id: str) -> dict | None:
         """Get session data with full conversation history"""
-        return self.session_manager.get_session_with_conversation(session_id) 
+        return self.session_manager.get_session_with_conversation(session_id)
+
+    def list_sessions(self) -> list[dict]:
+        """Return a list of all sessions with session_id and title."""
+        return self.session_manager.list_sessions() 
