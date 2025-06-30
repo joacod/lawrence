@@ -11,6 +11,7 @@ from src.core.storage_manager import StorageManager
 from src.utils.logger import setup_logger
 from src.agents.question_analysis_agent import QuestionAnalysisAgent
 import os
+import uuid
 
 logger = setup_logger(__name__)
 
@@ -39,25 +40,42 @@ class POAgent:
         self.question_analysis_agent = QuestionAnalysisAgent()
 
     async def process_feature(self, feature: str, session_id: str | None = None) -> tuple[str, str, str, str, list, int, int, datetime, datetime]:
-        session_id = self.session_manager.create_session(session_id)
-        created_at, updated_at = self.session_manager.get_session_timestamps(session_id)
-        chat_history = self.session_manager.get_chat_history(session_id)
-
-        # Use QuestionAnalysisAgent to update pending questions
-        pending_questions = self.storage_manager.get_pending_questions(session_id)
-        if pending_questions:
-            analysis_markdown = await self.question_analysis_agent.analyze(pending_questions, feature)
-            analysis = parse_questions_section(analysis_markdown)
-            for result in analysis:
-                q_text = result.get("question")
-                status = result.get("status")
-                user_answer = result.get("user_answer")
-                if status == "answered":
-                    self.storage_manager.answer_question(session_id, q_text, user_answer or feature)
-                elif status == "disregarded":
-                    self.storage_manager.disregard_question(session_id, q_text)
-                # If pending, do nothing
-
+        session_id = session_id or str(uuid.uuid4())
+        current_time = datetime.now(timezone.utc)
+        created_at = current_time
+        updated_at = current_time
+        # Temporary local variables for session data
+        chat_history = []
+        all_questions = []
+        # If this is a follow-up to an existing session, get its data (but do not persist yet)
+        if self.storage_manager.session_exists(session_id):
+            chat_history = self.session_manager.get_chat_history(session_id)
+            pending_questions = self.storage_manager.get_pending_questions(session_id)
+            if pending_questions:
+                analysis_markdown = await self.question_analysis_agent.analyze(pending_questions, feature)
+                analysis = parse_questions_section(analysis_markdown)
+                for result in analysis:
+                    q_text = result.get("question")
+                    status = result.get("status")
+                    user_answer = result.get("user_answer")
+                    if status == "answered":
+                        all_questions.append({
+                            'question': q_text,
+                            'status': 'answered',
+                            'user_answer': user_answer or feature
+                        })
+                    elif status == "disregarded":
+                        all_questions.append({
+                            'question': q_text,
+                            'status': 'disregarded',
+                            'user_answer': None
+                        })
+                    else:
+                        all_questions.append({
+                            'question': q_text,
+                            'status': 'pending',
+                            'user_answer': None
+                        })
         try:
             logger.info("Getting conversational response from model")
             result = await self.chain.ainvoke({
@@ -68,7 +86,6 @@ class POAgent:
             logger.info(result.content)
             try:
                 output = parse_response_to_json(result.content)
-                # Ensure RESPONSE is not empty; if it is, retry with explicit reminder
                 if not output["response"].strip():
                     logger.warning("Model output had empty RESPONSE section. Retrying with explicit format reminder.")
                     retry_prompt = (
@@ -95,19 +112,7 @@ class POAgent:
                 logger.error(result.content)
                 logger.error("---END OF FAILED RESPONSE---")
                 logger.info("Retrying with explicit format reminder")
-                retry_prompt = f"""Please provide your response in the EXACT format specified. You MUST include all section headers:
-
-RESPONSE:
-[Your conversational response here]
-
-PENDING QUESTIONS:
-[Your questions here]
-
-MARKDOWN:
-[Your markdown content here]
-
-Previous response that needs to be reformatted:
-{result.content}"""
+                retry_prompt = f"""Please provide your response in the EXACT format specified. You MUST include all section headers:\n\nRESPONSE:\n[Your conversational response here]\n\nPENDING QUESTIONS:\n[Your questions here]\n\nMARKDOWN:\n[Your markdown content here]\n\nPrevious response that needs to be reformatted:\n{result.content}"""
                 retry_result = await self.chain.ainvoke({
                     "chat_history": chat_history,
                     "input": retry_prompt
@@ -123,29 +128,37 @@ Previous response that needs to be reformatted:
                     logger.error(retry_result.content)
                     logger.error("---END OF FAILED RETRY RESPONSE---")
                     raise
-
-            # Store and update questions in StorageManager
+            # Store and update questions in local variable
             new_questions = output.get("questions", [])
             if new_questions and isinstance(new_questions[0], str):
-                self.storage_manager.add_questions(session_id, new_questions)
+                all_questions = []
+                for q in new_questions:
+                    all_questions.append({
+                        'question': q,
+                        'status': 'pending',
+                        'user_answer': None
+                    })
             elif new_questions and isinstance(new_questions[0], dict):
-                self.storage_manager.set_questions(session_id, new_questions)
-
-            # Always include all questions with their status and user_answer
-            all_questions = self.storage_manager.get_questions(session_id)
+                all_questions = new_questions.copy()
             output["questions"] = all_questions
-
-            # Calculate progress
             total_questions = len(all_questions)
             answered_questions = sum(1 for q in all_questions if q["status"] in ("answered", "disregarded"))
-
-            # Extract title from markdown if this is a new session
-            title = self._extract_title_from_markdown(output["markdown"], session_id)
+            # Extract title from markdown
+            title = self._extract_title_from_markdown(output["markdown"])
+            # Validate title
+            if not title or not title.strip():
+                logger.error(f"Failed to generate a valid feature title. Title extracted: '{title}'")
+                raise ValueError("Failed to generate a valid feature title. Please rephrase your request.")
             chat_history.append(HumanMessage(content=feature))
             chat_history.append(AIMessage(content=json.dumps(output)))
             if len(chat_history) > settings.MAX_HISTORY_LENGTH:
                 chat_history = chat_history[-settings.MAX_HISTORY_LENGTH:]
+            # Only now, after all is successful, persist to storage
+            self.session_manager.create_session(session_id)
+            self.session_manager.set_session_title(session_id, title)
             self.session_manager.update_chat_history(session_id, chat_history)
+            self.storage_manager.set_questions(session_id, all_questions)
+            self.session_manager.storage.set_session_timestamps(session_id, created_at, updated_at)
             return session_id, title, output["response"], output["markdown"], output["questions"], total_questions, answered_questions, created_at, updated_at
         except Exception as e:
             logger.error("Error in process_feature:", exc_info=True)
@@ -153,33 +166,15 @@ Previous response that needs to be reformatted:
             logger.error(f"Feature input: {feature}")
             raise
 
-    def _extract_title_from_markdown(self, markdown: str, session_id: str) -> str:
-        """Extract title from markdown and set it for the session"""
-        # Check if session already has a title
-        existing_title = self.session_manager.get_session_title(session_id)
-        if existing_title != "Untitled Feature":
-            return existing_title
-        
-        # Extract title from the first line of markdown
+    def _extract_title_from_markdown(self, markdown: str) -> str:
+        """Extract title from markdown and return it."""
         markdown_lines = markdown.split('\n')
         for line in markdown_lines:
             line = line.strip()
-            # Look for various markdown header formats
             if line.startswith('# Feature:'):
-                title = line.replace('# Feature:', '').strip()
-                break
+                return line.replace('# Feature:', '').strip()
             elif line.startswith('# '):
-                # Extract title from any # header (most common case)
-                title = line.replace('# ', '').strip()
-                break
+                return line.replace('# ', '').strip()
             elif line.startswith('## '):
-                # If no # header found, try ## header
-                title = line.replace('## ', '').strip()
-                break
-        else:
-            # If no title found in markdown, use a default
-            title = "Untitled Feature"
-        
-        # Set the title for this session
-        self.session_manager.set_session_title(session_id, title)
-        return title 
+                return line.replace('## ', '').strip()
+        return "" 
