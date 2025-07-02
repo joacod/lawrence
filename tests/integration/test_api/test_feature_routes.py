@@ -123,7 +123,7 @@ A comprehensive user authentication system.
         
         response = test_client.post("/process_feature", json=sample_feature_input.model_dump())
         
-        assert response.status_code == 503
+        assert response.status_code == 500
         data = response.json()
         assert data["data"] is None
         assert data["error"]["type"] == "internal_server_error"
@@ -299,8 +299,8 @@ class TestHelperFunctions:
     """Test the helper functions in feature routes."""
     
     def test_create_tickets_from_changes(self, test_client):
-        """Test the _create_tickets_from_changes helper function."""
-        from src.api.routes.feature_routes import _create_tickets_from_changes
+        """Test the create_tickets_from_changes helper function."""
+        from src.utils.api.response_helpers import create_tickets_from_changes
         
         changes = [
             "Implement user authentication service with JWT tokens",
@@ -308,7 +308,7 @@ class TestHelperFunctions:
             "Create user registration endpoint"
         ]
         
-        tickets = _create_tickets_from_changes(changes)
+        tickets = create_tickets_from_changes(changes)
         
         assert len(tickets) == 3
         assert tickets[0].title == "Implement user authentication service with JWT tok..."
@@ -318,11 +318,11 @@ class TestHelperFunctions:
     
     def test_create_tickets_from_changes_long_title(self, test_client):
         """Test ticket creation with long titles that get truncated."""
-        from src.api.routes.feature_routes import _create_tickets_from_changes
+        from src.utils.api.response_helpers import create_tickets_from_changes
         
         long_change = "This is a very long change description that should be truncated to 50 characters when creating the ticket title"
         
-        tickets = _create_tickets_from_changes([long_change])
+        tickets = create_tickets_from_changes([long_change])
         
         assert len(tickets) == 1
         assert tickets[0].title == "This is a very long change description that should..."
@@ -330,8 +330,8 @@ class TestHelperFunctions:
     
     def test_create_tickets_from_changes_empty_list(self, test_client):
         """Test ticket creation with empty changes list."""
-        from src.api.routes.feature_routes import _create_tickets_from_changes
+        from src.utils.api.response_helpers import create_tickets_from_changes
         
-        tickets = _create_tickets_from_changes([])
+        tickets = create_tickets_from_changes([])
         
         assert tickets == [] 

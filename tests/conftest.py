@@ -54,12 +54,12 @@ def mock_health_service():
 def test_client(mock_agent_service, mock_session_service, mock_health_service) -> Generator:
     """Create a test client for FastAPI with dependency overrides."""
     # Override dependencies for testing
-    from src.api.routes import feature_routes
+    from src.api import dependencies
     
     app.dependency_overrides = {
-        feature_routes.get_agent_service: lambda: mock_agent_service,
-        feature_routes.get_session_service: lambda: mock_session_service,
-        feature_routes.get_health_service: lambda: mock_health_service,
+        dependencies.get_agent_service: lambda: mock_agent_service,
+        dependencies.get_session_service: lambda: mock_session_service,
+        dependencies.get_health_service: lambda: mock_health_service,
     }
     
     with TestClient(app) as client:
@@ -73,12 +73,12 @@ def test_client(mock_agent_service, mock_session_service, mock_health_service) -
 async def async_client(mock_agent_service, mock_session_service, mock_health_service) -> AsyncGenerator[AsyncClient, None]:
     """Create an async test client for FastAPI with dependency overrides."""
     # Override dependencies for testing
-    from src.api.routes import feature_routes
+    from src.api import dependencies
     
     app.dependency_overrides = {
-        feature_routes.get_agent_service: lambda: mock_agent_service,
-        feature_routes.get_session_service: lambda: mock_session_service,
-        feature_routes.get_health_service: lambda: mock_health_service,
+        dependencies.get_agent_service: lambda: mock_agent_service,
+        dependencies.get_session_service: lambda: mock_session_service,
+        dependencies.get_health_service: lambda: mock_health_service,
     }
     
     async with AsyncClient(app=app, base_url="http://test") as client:
@@ -252,20 +252,20 @@ def mock_session_data():
 
 
 @pytest.fixture
-def mock_storage_manager(mocker):
-    """Mock storage manager for testing."""
-    mock_storage = mocker.patch('src.core.storage_manager.StorageManager')
-    mock_instance = mock_storage.return_value
+def mock_session_manager(mocker):
+    """Mock session manager for testing."""
+    mock_session = mocker.patch('src.core.session_manager.SessionManager')
+    mock_instance = mock_session.return_value
     
     # Setup default mock behaviors
     mock_instance.session_exists.return_value = True
     mock_instance.get_session_title.return_value = "Test Feature"
-    mock_instance.get_session_timestamps.return_value = {
-        "created_at": datetime.now(timezone.utc),
-        "updated_at": datetime.now(timezone.utc)
-    }
+    mock_instance.get_session_timestamps.return_value = (
+        datetime.now(timezone.utc),
+        datetime.now(timezone.utc)
+    )
     mock_instance.get_chat_history.return_value = []
-    mock_instance.get_all_session_data.return_value = {
+    mock_instance.get_session_with_conversation.return_value = {
         "session_id": "test-session-123",
         "title": "Test Feature",
         "created_at": datetime.now(timezone.utc),
@@ -273,6 +273,8 @@ def mock_storage_manager(mocker):
         "conversation": []
     }
     mock_instance.delete_session.return_value = True
+    mock_instance.clear_session.return_value = True
+    mock_instance.list_sessions.return_value = []
     
     return mock_instance
 

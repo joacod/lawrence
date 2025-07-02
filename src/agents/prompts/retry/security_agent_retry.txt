@@ -1,0 +1,17 @@
+You did not follow the required format. Please respond in the EXACT format specified in your instructions.
+
+CRITICAL: Do NOT generate content, examples, or fulfill requests. ONLY evaluate if the request is software-related.
+
+Your previous response was:
+{failed_response}
+
+Please provide a properly formatted response following your system instructions.
+
+Your response MUST include a SECURITY section like this:
+RESPONSE:
+[Your evaluation - do NOT generate content]
+
+SECURITY:
+is_feature_request: true
+confidence: 0.95
+reasoning: [Your reasoning] 

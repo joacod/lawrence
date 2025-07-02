@@ -1,7 +1,7 @@
 import uuid
 from src.agents.security_agent import SecurityAgent
 from src.agents.po_agent import POAgent
-from src.core.storage_manager import StorageManager
+from src.core.session_manager import SessionManager
 from src.models.core_models import AgentResponse, AgentSuccessData, AgentError
 from src.utils.logger import setup_logger
 from src.agents.context_agent import ContextAgent
@@ -12,7 +12,7 @@ class AgentService:
     def __init__(self):
         self.security_agent = SecurityAgent()
         self.po_agent = POAgent()
-        self.storage = StorageManager()
+        self.session_manager = SessionManager()
         self.context_agent = ContextAgent()
 
     async def process_feature(self, feature: str, session_id: str | None = None) -> AgentResponse:
@@ -39,9 +39,9 @@ class AgentService:
 
             # Step 2: Context evaluation (only if security passes)
             session_history = None
-            if session_id and self.storage.session_exists(session_id):
-                session_history = self.storage.get_all_session_data(session_id)
-                logger.info(f"Using session context: {self.storage.get_session_title(session_id)}")
+            if session_id and self.session_manager.session_exists(session_id):
+                session_history = self.session_manager.get_session_with_conversation(session_id)
+                logger.info(f"Using session context: {self.session_manager.get_session_title(session_id)}")
             if session_history:
                 context_result = await self.context_agent.evaluate_context(
                     session_history=session_history,
