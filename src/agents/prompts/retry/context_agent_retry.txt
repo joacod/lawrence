@@ -1,0 +1,11 @@
+You did not follow the required format. Please respond in the EXACT format specified in your instructions.
+
+Your previous response was:
+{failed_response}
+
+Please provide a properly formatted response following your system instructions.
+
+Your response MUST include a CONTEXT section like this:
+CONTEXT:
+is_contextually_relevant: true
+reasoning: [Your reasoning] 

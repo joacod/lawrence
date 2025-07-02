@@ -15,10 +15,6 @@ from src.agents.question_analysis_agent import QuestionAnalysisAgent
 from src.config.settings import settings
 from .base import ConversationalAgent
 
-
-# POAgent now uses the base agent's standardized retry mechanism
-
-
 class POAgent(ConversationalAgent):
     """
     Product Owner Agent for feature clarification and documentation.

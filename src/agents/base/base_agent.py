@@ -111,50 +111,42 @@ class BaseAgent(ABC):
     
     def _get_format_reminder_prompt(self, failed_response: str) -> str:
         """Get format reminder prompt for this agent type."""
-        base_reminder = f"""You did not follow the required format. Please respond in the EXACT format specified in your instructions.
+        return self._load_retry_prompt_template(failed_response)
+    
+    def _load_retry_prompt_template(self, failed_response: str) -> str:
+        """Load retry prompt template from file."""
+        # Try agent-specific retry prompt first
+        retry_filename = f"{self.agent_type}_agent_retry.txt"
+        retry_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), 
+            'prompts', 
+            'retry',
+            retry_filename
+        )
+        
+        # Fall back to default retry prompt if agent-specific doesn't exist
+        if not os.path.exists(retry_path):
+            retry_path = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)), 
+                'prompts', 
+                'retry',
+                'default_retry.txt'
+            )
+        
+        if not os.path.exists(retry_path):
+            # Ultimate fallback - basic inline template
+            return f"""You did not follow the required format. Please respond in the EXACT format specified in your instructions.
 
 Your previous response was:
 {failed_response}
 
 Please provide a properly formatted response following your system instructions."""
         
-        # Add agent-specific format examples
-        if self.agent_type == "security":
-            return f"""{base_reminder}
-
-Your response MUST include a SECURITY section like this:
-RESPONSE:
-[Your evaluation]
-
-SECURITY:
-is_feature_request: true
-confidence: 0.95
-reasoning: [Your reasoning]"""
+        with open(retry_path, 'r', encoding='utf-8') as f:
+            retry_template = f.read()
         
-        elif self.agent_type == "context":
-            return f"""{base_reminder}
-
-Your response MUST include a CONTEXT section like this:
-CONTEXT:
-is_contextually_relevant: true
-reasoning: [Your reasoning]"""
-        
-        elif self.agent_type == "po":
-            return f"""{base_reminder}
-
-Your response MUST include all section headers in this EXACT format:
-
-RESPONSE:
-[Your conversational response here]
-
-PENDING QUESTIONS:
-[Your questions here]
-
-MARKDOWN:
-[Your markdown content here]"""
-        
-        else:
-            return base_reminder
+        # Format the template with the failed response
+        return retry_template.format(failed_response=failed_response)
     
     async def invoke(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Main invoke method with full error handling and parsing."""

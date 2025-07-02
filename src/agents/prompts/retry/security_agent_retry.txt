@@ -1,0 +1,15 @@
+You did not follow the required format. Please respond in the EXACT format specified in your instructions.
+
+Your previous response was:
+{failed_response}
+
+Please provide a properly formatted response following your system instructions.
+
+Your response MUST include a SECURITY section like this:
+RESPONSE:
+[Your evaluation]
+
+SECURITY:
+is_feature_request: true
+confidence: 0.95
+reasoning: [Your reasoning] 
