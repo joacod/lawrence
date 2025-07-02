@@ -2,13 +2,13 @@ import pytest
 from datetime import datetime, timezone
 from pydantic import ValidationError
 
-from src.models.schemas import (
+from src.models.core_models import (
     FeatureInput, ChatData, ChatProgress, FeatureOverview, 
     Ticket, TicketsData, ConversationMessage, SessionDataWithConversation,
     AgentOutputData, HealthData, ClearSessionData, AgentOutput,
-    HealthResponse, SessionWithConversationResponse, ClearSessionResponse
+    HealthResponse, SessionWithConversationResponse, ClearSessionResponse,
+    QuestionData
 )
-from src.models.agent_response import QuestionData
 
 
 class TestFeatureInput:
@@ -462,7 +462,7 @@ class TestResponseModels:
     
     def test_agent_output_error(self):
         """Test AgentOutput with error."""
-        from src.models.schemas import AgentOutputError
+        from src.models.core_models import AgentError as AgentOutputError
         
         error = AgentOutputError(
             type="security_rejection",

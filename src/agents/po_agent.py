@@ -5,7 +5,9 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_ollama.chat_models import ChatOllama
 from src.config.settings import settings
-from src.utils.response_parser import parse_response_to_json, parse_questions_section
+from src.utils.parsers.agent_response_parser import parse_response_to_json
+from src.utils.parsers.question_parser import parse_questions_section
+from src.utils.parsers.markdown_parser import extract_title_from_markdown
 from src.core.session_manager import SessionManager
 from src.core.storage_manager import StorageManager
 from src.utils.logger import setup_logger
@@ -140,25 +142,8 @@ Previous response that needs to be reformatted:
         if existing_title != "Untitled Feature":
             return existing_title
         
-        # Extract title from the first line of markdown
-        markdown_lines = markdown.split('\n')
-        for line in markdown_lines:
-            line = line.strip()
-            # Look for various markdown header formats
-            if line.startswith('# Feature:'):
-                title = line.replace('# Feature:', '').strip()
-                break
-            elif line.startswith('# '):
-                # Extract title from any # header (most common case)
-                title = line.replace('# ', '').strip()
-                break
-            elif line.startswith('## '):
-                # If no # header found, try ## header
-                title = line.replace('## ', '').strip()
-                break
-        else:
-            # If no title found in markdown, use a default
-            title = "Untitled Feature"
+        # Use the dedicated markdown parser
+        title = extract_title_from_markdown(markdown)
         
         # Set the title for this session
         self.session_manager.set_session_title(session_id, title)

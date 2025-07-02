@@ -4,7 +4,7 @@ from typing import Optional, Dict, List
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama.chat_models import ChatOllama
 from src.config.settings import settings
-from src.models.agent_response import SecurityResponse
+from src.models.core_models import SecurityResponse
 from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
