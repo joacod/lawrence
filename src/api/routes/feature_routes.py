@@ -9,7 +9,7 @@ from src.models.core_models import (
 from src.services.agent_service import AgentService
 from src.services.session_service import SessionService
 from src.services.health_service import HealthService
-from src.utils.response_parser import parse_markdown_sections
+from src.utils.parsers.markdown_parser import parse_markdown_sections
 
 router = APIRouter()
 

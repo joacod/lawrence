@@ -1,11 +1,11 @@
 import pytest
-from src.utils.response_parser import (
+from src.utils.parsers.question_parser import (
     extract_questions_from_response,
-    extract_questions,
-    parse_markdown_sections,
-    parse_response_to_json
+    extract_questions_from_text as extract_questions,
+    _clean_bullet_point
 )
-from src.utils.parsers.question_parser import _clean_bullet_point
+from src.utils.parsers.markdown_parser import parse_markdown_sections
+from src.utils.parsers.agent_response_parser import parse_response_to_json
 
 
 class TestCleanBulletPoint:
