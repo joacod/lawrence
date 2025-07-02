@@ -3,6 +3,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama.chat_models import ChatOllama
 from src.config.settings import settings
 from src.utils.logger import setup_logger
+from src.utils.question_parser import parse_questions_section
 import os
 
 logger = setup_logger(__name__)
@@ -25,32 +26,7 @@ class QuestionAnalysisAgent:
         ])
         self.chain = self.prompt | self.llm
 
-    def _extract_questions_from_markdown(self, text: str) -> list:
-        """Extract QUESTIONS section from markdown block and convert to list of dicts."""
-        import re
-        match = re.search(r'QUESTIONS:\s*\n(.*?)(?=\n\w+:|$)', text, re.DOTALL)
-        if not match:
-            raise ValueError("No QUESTIONS section found in response")
-        section = match.group(1)
-        questions = []
-        current = {}
-        for line in section.splitlines():
-            line = line.strip()
-            if line.startswith('- question:'):
-                if current:
-                    questions.append(current)
-                current = {"question": line[len('- question:'):].strip().strip('"')}
-            elif line.startswith('status:'):
-                current["status"] = line[len('status:'):].strip().strip('"')
-            elif line.startswith('user_answer:'):
-                val = line[len('user_answer:'):].strip()
-                if val.lower() == 'null':
-                    current["user_answer"] = None
-                else:
-                    current["user_answer"] = val.strip('"')
-        if current:
-            questions.append(current)
-        return questions
+    # Removed: _extract_questions_from_markdown - now using parse_questions_section from utils
 
     async def analyze(self, pending_questions: list, user_followup: str) -> str:
         logger.info("Question analysis agent evaluating user follow-up against pending questions")

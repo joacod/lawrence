@@ -3,9 +3,9 @@ from src.utils.response_parser import (
     extract_questions_from_response,
     extract_questions,
     parse_markdown_sections,
-    parse_response_to_json,
-    _clean_bullet_point
+    parse_response_to_json
 )
+from src.utils.question_parser import _clean_bullet_point
 
 
 class TestCleanBulletPoint:
