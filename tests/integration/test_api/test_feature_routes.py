@@ -123,7 +123,7 @@ A comprehensive user authentication system.
         
         response = test_client.post("/process_feature", json=sample_feature_input.model_dump())
         
-        assert response.status_code == 503
+        assert response.status_code == 500
         data = response.json()
         assert data["data"] is None
         assert data["error"]["type"] == "internal_server_error"

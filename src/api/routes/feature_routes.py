@@ -10,6 +10,11 @@ from src.services.agent_service import AgentService
 from src.services.session_service import SessionService
 from src.services.health_service import HealthService
 from src.utils.parsers.markdown_parser import parse_markdown_sections
+from src.utils.api.error_handlers import (
+    create_error_response, create_not_found_response, 
+    create_service_unavailable_response, create_internal_error_response,
+    get_status_code_for_error_type
+)
 
 router = APIRouter()
 
@@ -64,15 +69,9 @@ async def get_session(session_id: str, session_service: SessionService = Depends
     session_data = session_service.get_session_with_conversation(session_id)
     
     if not session_data:
-        return JSONResponse(
-            status_code=404,
-            content=SessionWithConversationResponse(
-                data=None,
-                error=AgentOutputError(
-                    type="not_found",
-                    message="Session not found"
-                )
-            ).model_dump()
+        return create_not_found_response(
+            response_model=SessionWithConversationResponse,
+            resource_name="Session"
         )
     
     # Convert conversation data to proper schema format
@@ -220,35 +219,17 @@ async def process_feature(
                 error=None
             )
         else:
-            # Determine status code based on error type
-            status_code = 500  # default
-            if result.error.type in ("security_rejection", "context_deviation"):
-                status_code = 400
-            elif result.error.type == "internal_server_error":
-                status_code = 503
-            
-            return JSONResponse(
-                status_code=status_code,
-                content=AgentOutput(
-                    data=None,
-                    error=AgentOutputError(
-                        type=result.error.type,
-                        message=result.error.message
-                    )
-                ).model_dump()
+            return create_error_response(
+                response_model=AgentOutput,
+                error_type=result.error.type,
+                error_message=result.error.message
             )
             
     except Exception as e:
         # Handle unexpected exceptions
-        return JSONResponse(
-            status_code=503,
-            content=AgentOutput(
-                data=None,
-                error=AgentOutputError(
-                    type="internal_server_error",
-                    message="An internal error occurred"
-                )
-            ).model_dump()
+        return create_service_unavailable_response(
+            response_model=AgentOutput,
+            message="An internal error occurred"
         )
 
 @router.delete("/clear_session/{session_id}", response_model=ClearSessionResponse)
@@ -257,15 +238,9 @@ async def clear_session(session_id: str, session_service: SessionService = Depen
     success = session_service.clear_session(session_id)
     
     if not success:
-        return JSONResponse(
-            status_code=404,
-            content=ClearSessionResponse(
-                data=None,
-                error=AgentOutputError(
-                    type="not_found",
-                    message="Session not found"
-                )
-            ).model_dump()
+        return create_not_found_response(
+            response_model=ClearSessionResponse,
+            resource_name="Session"
         )
     
     return ClearSessionResponse(
