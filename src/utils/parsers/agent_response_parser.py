@@ -1,6 +1,6 @@
 import re
 from typing import Dict, List, Union
-from src.utils.question_parser import extract_questions_from_text
+from src.utils.parsers.question_parser import extract_questions_from_text
 
 def parse_response_to_json(text: str) -> Dict[str, Union[str, List[str]]]:
     """

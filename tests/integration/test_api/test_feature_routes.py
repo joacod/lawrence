@@ -2,8 +2,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime, timezone
 
-from src.models.schemas import FeatureInput
-from src.models.agent_response import AgentResponse, AgentSuccessData, AgentError
+from src.models.core_models import FeatureInput, AgentResponse, AgentSuccessData, AgentError
 
 
 class TestHealthEndpoint:

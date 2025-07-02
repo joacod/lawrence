@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
-from src.models.schemas import (
-    FeatureInput, AgentOutput, AgentOutputData, AgentOutputError, 
+from src.models.core_models import (
+    FeatureInput, AgentOutput, AgentOutputData, AgentError as AgentOutputError, 
     HealthResponse, HealthData, SessionWithConversationResponse, 
     SessionDataWithConversation, ConversationMessage, ClearSessionResponse, ClearSessionData,
     ChatData, ChatProgress, FeatureOverview, TicketsData, Ticket

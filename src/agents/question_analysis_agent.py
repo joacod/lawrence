@@ -3,7 +3,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama.chat_models import ChatOllama
 from src.config.settings import settings
 from src.utils.logger import setup_logger
-from src.utils.question_parser import parse_questions_section
+from src.utils.parsers.question_parser import parse_questions_section
 import os
 
 logger = setup_logger(__name__)

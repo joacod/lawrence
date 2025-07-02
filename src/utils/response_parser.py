@@ -4,20 +4,20 @@
 from typing import Dict, List, Union
 
 # Import from specialized parsers
-from src.utils.question_parser import (
+from src.utils.parsers.question_parser import (
     extract_questions_from_response,
     extract_questions_from_text as extract_questions,
     parse_questions_section
 )
 
-from src.utils.markdown_parser import (
+from src.utils.parsers.markdown_parser import (
     parse_markdown_sections,
     extract_title_from_markdown,
     parse_security_section,
     parse_context_section
 )
 
-from src.utils.agent_response_parser import (
+from src.utils.parsers.agent_response_parser import (
     parse_response_to_json
 )
 

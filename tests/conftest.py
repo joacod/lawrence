@@ -7,11 +7,11 @@ from fastapi.testclient import TestClient
 from httpx import AsyncClient
 
 from src.main import app
-from src.models.schemas import (
+from src.models.core_models import (
     FeatureInput, ChatData, ChatProgress, FeatureOverview, 
-    Ticket, TicketsData, ConversationMessage
+    Ticket, TicketsData, ConversationMessage,
+    AgentResponse, AgentSuccessData, AgentError, SecurityResponse, QuestionData
 )
-from src.models.agent_response import AgentResponse, AgentSuccessData, AgentError, SecurityResponse, QuestionData
 from src.services.agent_service import AgentService
 from src.services.session_service import SessionService
 from src.services.health_service import HealthService
