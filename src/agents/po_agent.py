@@ -7,7 +7,7 @@ from typing import List
 import json
 from datetime import datetime, timezone
 from langchain_core.messages import HumanMessage, AIMessage
-from src.utils.parsers.agent_response_parser import parse_response_to_json
+# parse_response_to_json no longer needed - base agent handles parsing automatically
 from src.utils.parsers.question_parser import parse_questions_section
 from src.utils.parsers.markdown_parser import extract_title_from_markdown
 from src.core.session_manager import SessionManager
@@ -16,20 +16,7 @@ from src.config.settings import settings
 from .base import ConversationalAgent
 
 
-# Retry prompt template for when initial response parsing fails
-RETRY_PROMPT_TEMPLATE = """Please provide your response in the EXACT format specified. You MUST include all section headers:
-
-RESPONSE:
-[Your conversational response here]
-
-PENDING QUESTIONS:
-[Your questions here]
-
-MARKDOWN:
-[Your markdown content here]
-
-Previous response that needs to be reformatted:
-{failed_response}"""
+# POAgent now uses the base agent's standardized retry mechanism
 
 
 class POAgent(ConversationalAgent):
@@ -82,44 +69,11 @@ class POAgent(ConversationalAgent):
         try:
             self.logger.info("Getting conversational response from model")
             
-            # Use the base agent's chain for the main response
-            result = await self.chain.ainvoke({
+            # Use the base agent's invoke method with automatic retry handling
+            output = await self.invoke({
                 "chat_history": chat_history,
                 "input": feature
             })
-            
-            self.logger.info("Model raw response:")
-            self.logger.info(result.content)
-            
-            try:
-                output = parse_response_to_json(result.content)
-            except ValueError as e:
-                self.logger.error("Failed to parse response:", exc_info=True)
-                self.logger.error("Raw response that failed to parse:")
-                self.logger.error("---START OF FAILED RESPONSE---")
-                self.logger.error(result.content)
-                self.logger.error("---END OF FAILED RESPONSE---")
-                self.logger.info("Retrying with explicit format reminder")
-                
-                retry_prompt = RETRY_PROMPT_TEMPLATE.format(failed_response=result.content)
-                
-                retry_result = await self.chain.ainvoke({
-                    "chat_history": chat_history,
-                    "input": retry_prompt
-                })
-                
-                self.logger.info("Retry model response:")
-                self.logger.info(retry_result.content)
-                
-                try:
-                    output = parse_response_to_json(retry_result.content)
-                except ValueError as e:
-                    self.logger.error("Failed to parse retry response:", exc_info=True)
-                    self.logger.error("Raw retry response that failed to parse:")
-                    self.logger.error("---START OF FAILED RETRY RESPONSE---")
-                    self.logger.error(retry_result.content)
-                    self.logger.error("---END OF FAILED RETRY RESPONSE---")
-                    raise
 
             # Store and update questions in SessionManager
             new_questions = output.get("questions", [])

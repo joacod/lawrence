@@ -4,6 +4,7 @@ Provides common functionality for all agents including LLM setup,
 prompt loading, error handling, and response processing.
 """
 import os
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from langchain_core.prompts import ChatPromptTemplate
@@ -94,6 +95,67 @@ class BaseAgent(ABC):
             self.logger.error(f"Raw response: {response_content}")
             raise ValueError(f"Failed to parse {self.agent_type} agent response: {str(e)}")
     
+    async def _retry_with_format_reminder(self, original_input: Dict[str, Any], failed_response: str) -> str:
+        """Retry with explicit format reminder when parsing fails."""
+        format_reminder = self._get_format_reminder_prompt(failed_response)
+        
+        self.logger.info(f"Retrying {self.agent_type} agent with format reminder")
+        
+        # Try once more with format reminder
+        result = await self.chain.ainvoke({
+            **original_input,
+            "input": format_reminder
+        })
+        
+        return result.content
+    
+    def _get_format_reminder_prompt(self, failed_response: str) -> str:
+        """Get format reminder prompt for this agent type."""
+        base_reminder = f"""You did not follow the required format. Please respond in the EXACT format specified in your instructions.
+
+Your previous response was:
+{failed_response}
+
+Please provide a properly formatted response following your system instructions."""
+        
+        # Add agent-specific format examples
+        if self.agent_type == "security":
+            return f"""{base_reminder}
+
+Your response MUST include a SECURITY section like this:
+RESPONSE:
+[Your evaluation]
+
+SECURITY:
+is_feature_request: true
+confidence: 0.95
+reasoning: [Your reasoning]"""
+        
+        elif self.agent_type == "context":
+            return f"""{base_reminder}
+
+Your response MUST include a CONTEXT section like this:
+CONTEXT:
+is_contextually_relevant: true
+reasoning: [Your reasoning]"""
+        
+        elif self.agent_type == "po":
+            return f"""{base_reminder}
+
+Your response MUST include all section headers in this EXACT format:
+
+RESPONSE:
+[Your conversational response here]
+
+PENDING QUESTIONS:
+[Your questions here]
+
+MARKDOWN:
+[Your markdown content here]"""
+        
+        else:
+            return base_reminder
+    
     async def invoke(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Main invoke method with full error handling and parsing."""
         try:
@@ -101,7 +163,21 @@ class BaseAgent(ABC):
             response_content = await self._invoke_with_retry(input_data)
             
             # Process response through parser
-            parsed_response = await self._process_response(response_content)
+            try:
+                parsed_response = await self._process_response(response_content)
+            except ValueError as parse_error:
+                # If parsing fails, try once with format reminder
+                if "Failed to parse" in str(parse_error):
+                    self.logger.warning(f"Format parsing failed, trying with format reminder")
+                    try:
+                        retry_response = await self._retry_with_format_reminder(input_data, response_content)
+                        parsed_response = await self._process_response(retry_response)
+                        self.logger.info(f"{self.agent_type} agent completed successfully after format retry")
+                    except Exception as retry_error:
+                        self.logger.error(f"Format retry also failed: {str(retry_error)}")
+                        raise parse_error  # Raise the original parsing error
+                else:
+                    raise
             
             self.logger.info(f"{self.agent_type} agent completed successfully")
             return parsed_response
