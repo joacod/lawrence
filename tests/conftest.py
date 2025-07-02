@@ -54,12 +54,12 @@ def mock_health_service():
 def test_client(mock_agent_service, mock_session_service, mock_health_service) -> Generator:
     """Create a test client for FastAPI with dependency overrides."""
     # Override dependencies for testing
-    from src.api.routes import feature_routes
+    from src.api import dependencies
     
     app.dependency_overrides = {
-        feature_routes.get_agent_service: lambda: mock_agent_service,
-        feature_routes.get_session_service: lambda: mock_session_service,
-        feature_routes.get_health_service: lambda: mock_health_service,
+        dependencies.get_agent_service: lambda: mock_agent_service,
+        dependencies.get_session_service: lambda: mock_session_service,
+        dependencies.get_health_service: lambda: mock_health_service,
     }
     
     with TestClient(app) as client:
@@ -73,12 +73,12 @@ def test_client(mock_agent_service, mock_session_service, mock_health_service) -
 async def async_client(mock_agent_service, mock_session_service, mock_health_service) -> AsyncGenerator[AsyncClient, None]:
     """Create an async test client for FastAPI with dependency overrides."""
     # Override dependencies for testing
-    from src.api.routes import feature_routes
+    from src.api import dependencies
     
     app.dependency_overrides = {
-        feature_routes.get_agent_service: lambda: mock_agent_service,
-        feature_routes.get_session_service: lambda: mock_session_service,
-        feature_routes.get_health_service: lambda: mock_health_service,
+        dependencies.get_agent_service: lambda: mock_agent_service,
+        dependencies.get_session_service: lambda: mock_session_service,
+        dependencies.get_health_service: lambda: mock_health_service,
     }
     
     async with AsyncClient(app=app, base_url="http://test") as client:

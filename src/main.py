@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from src.api.routes import feature_routes
+from src.api.routes import api_router
 from src.config.settings import settings
 
 # Initialize FastAPI application
@@ -16,7 +16,7 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(feature_routes.router)
+app.include_router(api_router)
 
 if __name__ == "__main__":
     import uvicorn
