@@ -16,6 +16,22 @@ from src.config.settings import settings
 from .base import ConversationalAgent
 
 
+# Retry prompt template for when initial response parsing fails
+RETRY_PROMPT_TEMPLATE = """Please provide your response in the EXACT format specified. You MUST include all section headers:
+
+RESPONSE:
+[Your conversational response here]
+
+PENDING QUESTIONS:
+[Your questions here]
+
+MARKDOWN:
+[Your markdown content here]
+
+Previous response that needs to be reformatted:
+{failed_response}"""
+
+
 class POAgent(ConversationalAgent):
     """
     Product Owner Agent for feature clarification and documentation.
@@ -85,19 +101,7 @@ class POAgent(ConversationalAgent):
                 self.logger.error("---END OF FAILED RESPONSE---")
                 self.logger.info("Retrying with explicit format reminder")
                 
-                retry_prompt = f"""Please provide your response in the EXACT format specified. You MUST include all section headers:
-
-RESPONSE:
-[Your conversational response here]
-
-PENDING QUESTIONS:
-[Your questions here]
-
-MARKDOWN:
-[Your markdown content here]
-
-Previous response that needs to be reformatted:
-{result.content}"""
+                retry_prompt = RETRY_PROMPT_TEMPLATE.format(failed_response=result.content)
                 
                 retry_result = await self.chain.ainvoke({
                     "chat_history": chat_history,
