@@ -9,7 +9,6 @@ from src.utils.parsers.agent_response_parser import parse_response_to_json
 from src.utils.parsers.question_parser import parse_questions_section
 from src.utils.parsers.markdown_parser import extract_title_from_markdown
 from src.core.session_manager import SessionManager
-from src.core.storage_manager import StorageManager
 from src.utils.logger import setup_logger
 from src.agents.question_analysis_agent import QuestionAnalysisAgent
 import os
@@ -37,7 +36,6 @@ class POAgent:
         ])
         self.chain = self.prompt | self.llm
         self.session_manager = SessionManager()
-        self.storage_manager = StorageManager()
         self.question_analysis_agent = QuestionAnalysisAgent()
 
     async def process_feature(self, feature: str, session_id: str | None = None) -> tuple[str, str, str, str, list, int, int, datetime, datetime]:
@@ -46,7 +44,7 @@ class POAgent:
         chat_history = self.session_manager.get_chat_history(session_id)
 
         # Use QuestionAnalysisAgent to update pending questions
-        pending_questions = self.storage_manager.get_pending_questions(session_id)
+        pending_questions = self.session_manager.get_pending_questions(session_id)
         if pending_questions:
             analysis_markdown = await self.question_analysis_agent.analyze(pending_questions, feature)
             analysis = parse_questions_section(analysis_markdown)
@@ -55,9 +53,9 @@ class POAgent:
                 status = result.get("status")
                 user_answer = result.get("user_answer")
                 if status == "answered":
-                    self.storage_manager.answer_question(session_id, q_text, user_answer or feature)
+                    self.session_manager.answer_question(session_id, q_text, user_answer or feature)
                 elif status == "disregarded":
-                    self.storage_manager.disregard_question(session_id, q_text)
+                    self.session_manager.disregard_question(session_id, q_text)
                 # If pending, do nothing
 
         try:
@@ -106,15 +104,15 @@ Previous response that needs to be reformatted:
                     logger.error("---END OF FAILED RETRY RESPONSE---")
                     raise
 
-            # Store and update questions in StorageManager
+            # Store and update questions in SessionManager
             new_questions = output.get("questions", [])
             if new_questions and isinstance(new_questions[0], str):
-                self.storage_manager.add_questions(session_id, new_questions)
+                self.session_manager.add_questions(session_id, new_questions)
             elif new_questions and isinstance(new_questions[0], dict):
-                self.storage_manager.set_questions(session_id, new_questions)
+                self.session_manager.set_questions(session_id, new_questions)
 
             # Always include all questions with their status and user_answer
-            all_questions = self.storage_manager.get_questions(session_id)
+            all_questions = self.session_manager.get_questions(session_id)
             output["questions"] = all_questions
 
             # Calculate progress

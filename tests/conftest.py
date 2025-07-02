@@ -252,20 +252,20 @@ def mock_session_data():
 
 
 @pytest.fixture
-def mock_storage_manager(mocker):
-    """Mock storage manager for testing."""
-    mock_storage = mocker.patch('src.core.storage_manager.StorageManager')
-    mock_instance = mock_storage.return_value
+def mock_session_manager(mocker):
+    """Mock session manager for testing."""
+    mock_session = mocker.patch('src.core.session_manager.SessionManager')
+    mock_instance = mock_session.return_value
     
     # Setup default mock behaviors
     mock_instance.session_exists.return_value = True
     mock_instance.get_session_title.return_value = "Test Feature"
-    mock_instance.get_session_timestamps.return_value = {
-        "created_at": datetime.now(timezone.utc),
-        "updated_at": datetime.now(timezone.utc)
-    }
+    mock_instance.get_session_timestamps.return_value = (
+        datetime.now(timezone.utc),
+        datetime.now(timezone.utc)
+    )
     mock_instance.get_chat_history.return_value = []
-    mock_instance.get_all_session_data.return_value = {
+    mock_instance.get_session_with_conversation.return_value = {
         "session_id": "test-session-123",
         "title": "Test Feature",
         "created_at": datetime.now(timezone.utc),
@@ -273,6 +273,8 @@ def mock_storage_manager(mocker):
         "conversation": []
     }
     mock_instance.delete_session.return_value = True
+    mock_instance.clear_session.return_value = True
+    mock_instance.list_sessions.return_value = []
     
     return mock_instance
 
