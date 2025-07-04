@@ -1,0 +1,125 @@
+---
+description: Project-wide coding standards and guidelines, applied to all relevant source files
+globs:
+alwaysApply: true
+---
+# Lawrence - Project Rules and Best Practices
+
+## Project Overview
+This is a FastAPI-based AI agent system that automates software product owner workflows using multiple AI agents for feature requirement analysis, security validation, and documentation generation.
+
+## Architecture Patterns
+
+### 1. Layered Architecture
+- **API Layer** (`src/api/`): FastAPI routes and dependencies
+- **Service Layer** (`src/services/`): Business logic and agent orchestration
+- **Core Layer** (`src/core/`): Management files and data persistence
+- **Agent Layer** (`src/agents/`): AI agent implementations
+- **Model Layer** (`src/models/`): Pydantic data models
+- **Config Layer** (`src/config/`): Application settings
+- **Utils Layer** (`src/utils/`): Shared utilities and parsers
+
+### 2. Dependency Injection
+- Use FastAPI's dependency injection for services
+- Keep dependencies in `src/api/dependencies.py`
+- Inject services into route handlers
+
+### 3. Agent Pattern
+- Each agent should inherit from a base agent class
+- Agents should be stateless and focused on single responsibilities
+- Use prompt templates in `src/agents/prompts/`
+- Implement consistent error handling across agents
+
+## Code Organization
+
+### File Naming Conventions
+- Use snake_case for all Python files and directories
+- Route files: `*_routes.py`
+- Service files: `*_service.py`
+- Agent files: `*_agent.py`
+- Model files: `*_models.py` or `core_models.py`
+
+## API Design Patterns
+
+### 1. Consistent Response Format
+- Use `ApiResponse[T]` generic wrapper for all endpoints
+- Include both `data` and `error` fields
+- Use proper HTTP status codes
+
+### 2. Route Organization
+- Group related endpoints in separate route files
+- Use descriptive route prefixes
+
+### 3. Error Handling
+- Use `AgentError` model for structured errors
+- Implement proper exception handling
+- Return appropriate HTTP status codes
+
+## Data Models
+
+### 1. Pydantic Models
+- Use Pydantic v2 syntax
+- Define clear model hierarchies
+- Use proper type hints and validation
+
+### 2. Model Organization
+- Keep core models in `src/models/core_models.py`
+- Use descriptive field names
+
+## Agent Development
+
+### 1. Agent Interface
+- Implement consistent agent interfaces
+- Use base agent classes for common functionality
+- Handle agent errors gracefully
+- Implement proper logging
+
+### 2. Prompt Management
+- Store prompts in separate files
+- Use template variables for dynamic content
+
+### 3. Model Configuration
+- Use different models for different tasks
+- Configure models in `src/config/settings.py`
+
+## Performance Patterns
+
+### 1. Async Operations
+- Use async/await for I/O operations
+- Implement proper async service methods
+- Handle concurrent requests efficiently
+
+### 2. Caching
+- Cache agent responses when appropriate
+- Implement session caching
+- Use proper cache invalidation
+
+## Logging and Monitoring
+- Use structured logging
+- Log at appropriate levels (DEBUG, INFO, WARNING, ERROR)
+- Include request IDs for tracing
+- Log agent interactions
+
+## Code Quality
+- Use type hints throughout
+- Follow PEP 8 style guidelines
+- Use meaningful variable and function names
+- Write comprehensive docstrings
+
+## Common Anti-Patterns to Avoid
+
+### 1. Don't
+- Mix business logic in route handlers
+- Use global variables for state
+- Skip error handling
+- Ignore type hints
+
+### 2. Do
+- Separate concerns properly
+- Use dependency injection
+- Implement proper error handling
+- Use type hints consistently
+- Follow the established patterns
+
+## Testing
+- Testing is optional and follows policies in .cursor/rules/testing-rules.mdc, applied only when explicitly requested

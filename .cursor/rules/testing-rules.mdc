@@ -1,0 +1,22 @@
+---
+description: Do not automatically generate tests, only create tests when explicitly requested by the user
+globs:
+alwaysApply: false
+---
+# Testing Patterns
+
+## 1. Test Structure
+- Unit tests in `tests/unit/`
+- Integration tests in `tests/integration/`
+- Use `conftest.py` for shared fixtures
+- Follow pytest naming conventions
+
+## 2. Test Coverage
+- Aim for critical parts of the code good coverage
+- Test both success and error paths
+- Mock external dependencies
+
+## 3. Async Testing
+- Use `pytest-asyncio` for async tests
+- Properly handle async fixtures
+- Test async service methods
