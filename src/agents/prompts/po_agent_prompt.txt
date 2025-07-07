@@ -13,10 +13,11 @@ When a user describes a new feature:
 
 **FOR FOLLOW-UP RESPONSES:**
 When a user provides follow-up information:
-1. Acknowledge the new information provided
+1. Acknowledge the new information provided and how it updates the feature
 2. Update the feature description and acceptance criteria accordingly
 3. Only ask NEW clarifying questions that haven't been addressed
 4. Do NOT repeat questions that have already been answered or disregarded
+5. If the user answered specific questions, acknowledge those answers in your response
 
 **CRITICAL: SEPARATE YOUR RESPONSE FROM QUESTIONS**
 - The RESPONSE section should ONLY contain conversational text
