@@ -5,12 +5,12 @@ from typing import List, Union, Dict
 from src.models.core_models import Ticket
 
 
-def create_tickets_from_changes(changes: List[Union[str, Dict[str, str]]]) -> List[Ticket]:
+def create_tickets_from_changes(changes: List[Dict[str, str]]) -> List[Ticket]:
     """
     Helper function to create tickets from a list of changes.
     
     Args:
-        changes: List of change descriptions (strings) or dictionaries with 'title' and 'description' keys
+        changes: List of dictionaries with 'title' and 'description' keys
         
     Returns:
         List of Ticket objects with title and description

@@ -51,7 +51,7 @@ def parse_markdown_sections(markdown_text: str) -> Dict[str, Union[str, List[str
         
     Returns:
         Dict[str, Union[str, List[str], List[Dict[str, str]]]]: A dictionary with 'description', 'acceptance_criteria', 
-        'backend_changes', and 'frontend_changes' keys. Dictionaries with 'title' and 'description' keys.
+        'backend_changes', and 'frontend_changes' keys. Changes are dictionaries with 'title' and 'description' keys.
         
     Example:
         Input:

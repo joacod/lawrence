@@ -67,12 +67,12 @@ A comprehensive user authentication system.
 - Users can login with valid credentials
 
 ## Backend Changes
-- Implement user authentication service
-- Add JWT token generation
+- **Title: Implement User Authentication** - Create authentication service with JWT tokens
+- **Title: Add JWT Token Generation** - Implement JWT token generation and validation
 
 ## Frontend Changes
-- Create registration form
-- Create login form""",
+- **Title: Create Registration Form** - Design responsive registration form with validation
+- **Title: Create Login Form** - Design responsive login form with validation""",
                 questions=[{"question": "What authentication method do you prefer?", "status": "pending", "user_answer": None}]
             )
         )
@@ -223,10 +223,10 @@ A comprehensive user authentication system.
 - Users can login with valid credentials
 
 ## Backend Changes
-- Implement user authentication service
+- **Title: Implement User Authentication** - Create authentication service with JWT tokens
 
 ## Frontend Changes
-- Create login form""",
+- **Title: Create Login Form** - Design responsive login form with validation""",
                     "questions": [
                         {"question": "What authentication method do you prefer?", "status": "pending", "user_answer": None}
                     ],
@@ -299,34 +299,36 @@ class TestHelperFunctions:
     """Test the helper functions in feature routes."""
     
     def test_create_tickets_from_changes(self, test_client):
-        """Test the create_tickets_from_changes helper function."""
+        """Test the create_tickets_from_changes helper function with new format."""
         from src.utils.api.response_helpers import create_tickets_from_changes
         
         changes = [
-            "Implement user authentication service with JWT tokens",
-            "Add password hashing with bcrypt",
-            "Create user registration endpoint"
+            {"title": "Implement User Authentication", "description": "Create authentication service with JWT tokens"},
+            {"title": "Add Password Hashing", "description": "Implement bcrypt password hashing for security"},
+            {"title": "Create User Registration", "description": "Add user registration endpoint with validation"}
         ]
         
         tickets = create_tickets_from_changes(changes)
         
         assert len(tickets) == 3
-        assert tickets[0].title == "Implement user authentication service with JWT tok..."
-        assert tickets[0].description == "Implement user authentication service with JWT tokens"
-        assert tickets[1].title == "Add password hashing with bcrypt"
-        assert tickets[2].title == "Create user registration endpoint"
+        assert tickets[0].title == "Implement User Authentication"
+        assert tickets[0].description == "Create authentication service with JWT tokens"
+        assert tickets[1].title == "Add Password Hashing"
+        assert tickets[1].description == "Implement bcrypt password hashing for security"
+        assert tickets[2].title == "Create User Registration"
+        assert tickets[2].description == "Add user registration endpoint with validation"
     
     def test_create_tickets_from_changes_long_title(self, test_client):
         """Test ticket creation with long titles that get truncated."""
         from src.utils.api.response_helpers import create_tickets_from_changes
         
-        long_change = "This is a very long change description that should be truncated to 50 characters when creating the ticket title"
+        long_change = {"title": "This is a very long title that should be truncated to 50 characters when creating the ticket title", "description": "This is the full description that should be preserved"}
         
         tickets = create_tickets_from_changes([long_change])
         
         assert len(tickets) == 1
-        assert tickets[0].title == "This is a very long change description that should..."
-        assert tickets[0].description == long_change  # Full description preserved
+        assert tickets[0].title == "This is a very long title that should be truncated to 50 characters when creating the ticket title"
+        assert tickets[0].description == "This is the full description that should be preserved"
     
     def test_create_tickets_from_changes_empty_list(self, test_client):
         """Test ticket creation with empty changes list."""
@@ -334,4 +336,6 @@ class TestHelperFunctions:
         
         tickets = create_tickets_from_changes([])
         
-        assert tickets == [] 
+        assert tickets == []
+    
+ 

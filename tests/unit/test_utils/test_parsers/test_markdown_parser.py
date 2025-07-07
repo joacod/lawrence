@@ -19,16 +19,16 @@ A comprehensive user authentication system that allows users to register and log
 - Password requirements are enforced
 
 ## Backend Changes
-- Implement user authentication service
-- Add JWT token generation
-- Create password hashing utilities
-- Add input validation middleware
+- **Title: Implement User Authentication** - Create authentication service with JWT tokens
+- **Title: Add Password Hashing** - Implement bcrypt password hashing for security
+- **Title: Create User Registration** - Add user registration endpoint with validation
+- **Title: Add Input Validation** - Implement middleware for input validation
 
 ## Frontend Changes
-- Create registration form
-- Create login form
-- Add form validation
-- Implement error handling"""
+- **Title: Create Registration Form** - Design responsive registration form with validation
+- **Title: Create Login Form** - Design responsive login form with validation
+- **Title: Add Form Validation** - Implement client-side form validation
+- **Title: Add Error Handling** - Implement user-friendly error messages"""
         
         result = parse_markdown_sections(markdown)
         
@@ -36,9 +36,11 @@ A comprehensive user authentication system that allows users to register and log
         assert len(result["acceptance_criteria"]) == 4
         assert "Users can register with email and password" in result["acceptance_criteria"]
         assert len(result["backend_changes"]) == 4
-        assert "Implement user authentication service" in result["backend_changes"]
+        assert result["backend_changes"][0]["title"] == "Implement User Authentication"
+        assert result["backend_changes"][0]["description"] == "Create authentication service with JWT tokens"
         assert len(result["frontend_changes"]) == 4
-        assert "Create registration form" in result["frontend_changes"]
+        assert result["frontend_changes"][0]["title"] == "Create Registration Form"
+        assert result["frontend_changes"][0]["description"] == "Design responsive registration form with validation"
     
     def test_parse_markdown_missing_sections(self):
         """Test parsing markdown with missing sections."""
@@ -82,10 +84,10 @@ Test description.
 * Another asterisk
 
 ## Backend Changes
-- Backend change
+- **Title: Backend Change** - Implement backend functionality
 
 ## Frontend Changes
-* Frontend change"""
+* **Title: Frontend Change** - Implement frontend functionality"""
         
         result = parse_markdown_sections(markdown)
         
@@ -93,4 +95,8 @@ Test description.
         assert "Dash bullet point" in result["acceptance_criteria"]
         assert "Asterisk bullet point" in result["acceptance_criteria"]
         assert len(result["backend_changes"]) == 1
-        assert len(result["frontend_changes"]) == 1 
+        assert result["backend_changes"][0]["title"] == "Backend Change"
+        assert len(result["frontend_changes"]) == 1
+        assert result["frontend_changes"][0]["title"] == "Frontend Change"
+    
+ 
