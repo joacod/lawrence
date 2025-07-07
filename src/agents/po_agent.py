@@ -47,20 +47,25 @@ class POAgent(ConversationalAgent):
         created_at, updated_at = self.session_manager.get_session_timestamps(session_id)
         chat_history = self.session_manager.get_chat_history(session_id)
 
-        # Use QuestionAnalysisAgent to update pending questions
-        pending_questions = self.session_manager.get_pending_questions(session_id)
-        if pending_questions:
-            analysis_markdown = await self.question_analysis_agent.analyze(pending_questions, feature)
-            analysis = parse_questions_section(analysis_markdown)
-            for result in analysis:
-                q_text = result.get("question")
-                status = result.get("status")
-                user_answer = result.get("user_answer")
-                if status == "answered":
-                    self.session_manager.answer_question(session_id, q_text, user_answer or feature)
-                elif status == "disregarded":
-                    self.session_manager.disregard_question(session_id, q_text)
-                # If pending, do nothing
+        # Check if this is a follow-up to existing questions
+        existing_questions = self.session_manager.get_questions(session_id)
+        is_followup = len(existing_questions) > 0 and len(chat_history) > 0
+        
+        if is_followup:
+            self.logger.info("Processing follow-up response to existing questions")
+            # Use QuestionAnalysisAgent to update pending questions
+            pending_questions = self.session_manager.get_pending_questions(session_id)
+            if pending_questions:
+                analysis_markdown = await self.question_analysis_agent.analyze(pending_questions, feature)
+                analysis = parse_questions_section(analysis_markdown)
+                for result in analysis:
+                    q_text = result.get("question")
+                    status = result.get("status")
+                    user_answer = result.get("user_answer")
+                    if status == "answered":
+                        self.session_manager.answer_question(session_id, q_text, user_answer or feature)
+                    elif status == "disregarded":
+                        self.session_manager.disregard_question(session_id, q_text)
 
         try:
             self.logger.info("Getting conversational response from model")
@@ -71,12 +76,25 @@ class POAgent(ConversationalAgent):
                 "input": feature
             })
 
-            # Store and update questions in SessionManager
-            new_questions = output.get("questions", [])
-            if new_questions and isinstance(new_questions[0], str):
-                self.session_manager.add_questions(session_id, new_questions)
-            elif new_questions and isinstance(new_questions[0], dict):
-                self.session_manager.set_questions(session_id, new_questions)
+            # Handle questions based on whether this is a follow-up or new feature
+            if is_followup:
+                # For follow-ups, only add NEW questions, don't replace existing ones
+                new_questions = output.get("questions", [])
+                if new_questions and isinstance(new_questions[0], str):
+                    self.session_manager.add_questions(session_id, new_questions)
+                elif new_questions and isinstance(new_questions[0], dict):
+                    # Add only questions that don't already exist
+                    existing_question_texts = {q['question'] for q in existing_questions}
+                    for new_q in new_questions:
+                        if new_q.get('question') not in existing_question_texts:
+                            self.session_manager.add_questions(session_id, [new_q['question']])
+            else:
+                # For new features, set the questions as before
+                new_questions = output.get("questions", [])
+                if new_questions and isinstance(new_questions[0], str):
+                    self.session_manager.add_questions(session_id, new_questions)
+                elif new_questions and isinstance(new_questions[0], dict):
+                    self.session_manager.set_questions(session_id, new_questions)
 
             # Always include all questions with their status and user_answer
             all_questions = self.session_manager.get_questions(session_id)
