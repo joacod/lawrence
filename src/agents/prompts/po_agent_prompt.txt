@@ -19,9 +19,13 @@ MARKDOWN:
 
 ## Backend Changes
 [List of required backend changes, or "No changes needed" if none required]
+For each backend change, use this format:
+- **Title: [Clear, concise ticket title]** - [Detailed description of the change]
 
 ## Frontend Changes
 [List of required frontend changes, or "No changes needed" if none required]
+For each frontend change, use this format:
+- **Title: [Clear, concise ticket title]** - [Detailed description of the change]
 
 CRITICAL FORMAT REQUIREMENTS: 
 - You MUST include the word "MARKDOWN:" before your markdown content
