@@ -181,14 +181,20 @@ class POAgent(ConversationalAgent):
             if is_followup:
                 # For follow-ups, only add NEW questions, don't replace existing ones
                 new_questions = output.get("questions", [])
-                if new_questions and isinstance(new_questions[0], str):
-                    self.session_manager.add_questions(session_id, new_questions)
-                elif new_questions and isinstance(new_questions[0], dict):
-                    # Add only questions that don't already exist
-                    existing_question_texts = {q['question'] for q in existing_questions}
-                    for new_q in new_questions:
-                        if new_q.get('question') not in existing_question_texts:
-                            self.session_manager.add_questions(session_id, [new_q['question']])
+                if new_questions:
+                    self.logger.info(f"Processing {len(new_questions)} new questions for follow-up")
+                    # Filter out duplicate/similar questions
+                    filtered_questions = self._filter_duplicate_questions(new_questions, existing_questions)
+                    self.logger.info(f"After deduplication: {len(filtered_questions)} questions remaining")
+                    
+                    if filtered_questions and isinstance(filtered_questions[0], str):
+                        self.session_manager.add_questions(session_id, filtered_questions)
+                    elif filtered_questions and isinstance(filtered_questions[0], dict):
+                        # Add only questions that don't already exist
+                        existing_question_texts = {q['question'] for q in existing_questions}
+                        for new_q in filtered_questions:
+                            if new_q.get('question') not in existing_question_texts:
+                                self.session_manager.add_questions(session_id, [new_q['question']])
             else:
                 # For new features, set the questions as before
                 new_questions = output.get("questions", [])
@@ -256,4 +262,108 @@ class POAgent(ConversationalAgent):
     
     async def process(self, feature: str, session_id: str | None = None) -> tuple:
         """Main processing method - delegates to process_feature."""
-        return await self.process_feature(feature, session_id) 
+        return await self.process_feature(feature, session_id)
+
+    def _is_similar_question(self, new_question: str, existing_questions: List[dict]) -> bool:
+        """
+        Check if a new question is similar to existing questions.
+        
+        Args:
+            new_question (str): The new question to check
+            existing_questions (List[dict]): List of existing questions
+            
+        Returns:
+            bool: True if similar question exists, False otherwise
+        """
+        new_question_lower = new_question.lower()
+        
+        # Keywords to check for similarity
+        similarity_keywords = {
+            '2fa': ['two factor', 'two-factor', '2fa', 'authentication'],
+            'password_reset': ['forgotten password', 'password reset', 'password recovery', 'reset password'],
+            'registration': ['register', 'registration', 'sign up', 'account creation'],
+            'password_complexity': ['password complexity', 'password rules', 'password requirements'],
+            'security': ['security measures', 'security', 'protection', 'lock'],
+            'email': ['email verification', 'email link', 'email code', 'email reset']
+        }
+        
+        for category, keywords in similarity_keywords.items():
+            # Check if new question contains any keywords from this category
+            new_has_keywords = any(keyword in new_question_lower for keyword in keywords)
+            
+            if new_has_keywords:
+                # Check if any existing question has similar keywords
+                for existing_q in existing_questions:
+                    existing_text = existing_q.get('question', '').lower()
+                    existing_has_keywords = any(keyword in existing_text for keyword in keywords)
+                    
+                    if existing_has_keywords:
+                        # Additional check: if both questions are about the same topic
+                        # and the new one is just a variation, consider it similar
+                        if self._are_questions_about_same_topic(new_question_lower, existing_text):
+                            return True
+        
+        return False
+    
+    def _are_questions_about_same_topic(self, question1: str, question2: str) -> bool:
+        """
+        Check if two questions are about the same topic.
+        
+        Args:
+            question1 (str): First question (lowercase)
+            question2 (str): Second question (lowercase)
+            
+        Returns:
+            bool: True if questions are about the same topic
+        """
+        # Extract key topic words from questions
+        def extract_topics(question: str) -> set:
+            topics = set()
+            if '2fa' in question or 'two factor' in question or 'authentication' in question:
+                topics.add('2fa')
+            if 'password' in question and ('reset' in question or 'recovery' in question or 'forgotten' in question):
+                topics.add('password_reset')
+            if 'register' in question or 'account' in question:
+                topics.add('registration')
+            if 'password' in question and ('complexity' in question or 'rules' in question):
+                topics.add('password_complexity')
+            if 'security' in question:
+                topics.add('security')
+            if 'email' in question:
+                topics.add('email')
+            return topics
+        
+        topics1 = extract_topics(question1)
+        topics2 = extract_topics(question2)
+        
+        # If they share any topic, they're about the same subject
+        return bool(topics1 & topics2)
+
+    def _filter_duplicate_questions(self, new_questions: List, existing_questions: List[dict]) -> List:
+        """
+        Filter out questions that are similar to existing ones.
+        
+        Args:
+            new_questions (List): List of new questions (strings or dicts)
+            existing_questions (List[dict]): List of existing questions
+            
+        Returns:
+            List: Filtered list of new questions without duplicates
+        """
+        filtered_questions = []
+        
+        for new_q in new_questions:
+            if isinstance(new_q, str):
+                question_text = new_q
+            elif isinstance(new_q, dict):
+                question_text = new_q.get('question', '')
+            else:
+                continue
+            
+            # Check if this question is similar to existing ones
+            if not self._is_similar_question(question_text, existing_questions):
+                filtered_questions.append(new_q)
+            else:
+                self.logger.info(f"Filtered out duplicate question: {question_text[:50]}...")
+        
+        return filtered_questions 
