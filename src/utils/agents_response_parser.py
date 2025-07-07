@@ -26,9 +26,16 @@ class AgentResponseParser(ABC):
         """Parse a key:value section into a dictionary."""
         result = {}
         for line in section_content.splitlines():
+            # Handle both colon and semicolon separators
             if ':' in line:
-                key, value = line.split(':', 1)
-                result[key.strip()] = value.strip()
+                # Split on first colon only to handle values that might contain colons
+                parts = line.split(':', 1)
+                if len(parts) == 2:
+                    key = parts[0].strip()
+                    value = parts[1].strip()
+                    # Remove trailing semicolons if present
+                    value = value.rstrip(';')
+                    result[key] = value
         return result
 
 
