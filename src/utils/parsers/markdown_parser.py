@@ -14,7 +14,35 @@ def _clean_bullet_point(line: str) -> str:
         line = line[1:].strip()
     return line
 
-def parse_markdown_sections(markdown_text: str) -> Dict[str, Union[str, List[str]]]:
+def _parse_changes_with_titles(changes_text: str) -> List[Dict[str, str]]:
+    """
+    Parse changes section to extract titles and descriptions.
+    
+    Args:
+        changes_text (str): The text from a changes section
+        
+    Returns:
+        List[Dict[str, str]]: List of dictionaries with 'title' and 'description' keys
+    """
+    changes = []
+    for line in changes_text.split('\n'):
+        line = _clean_bullet_point(line)
+        if not line or line.startswith('##'):
+            continue
+            
+        # Parse tickets format: **Title: [title]** - [description]
+        title_match = re.search(r'\*\*Title:\s*([^*]+)\*\*\s*-\s*(.+)', line)
+        if title_match:
+            title = title_match.group(1).strip()
+            description = title_match.group(2).strip()
+            changes.append({
+                "title": title,
+                "description": description
+            })
+    
+    return changes
+
+def parse_markdown_sections(markdown_text: str) -> Dict[str, Union[str, List[str], List[Dict[str, str]]]]:
     """
     Parse markdown text to extract Description, Acceptance Criteria, Backend Changes, and Frontend Changes.
     
@@ -22,8 +50,8 @@ def parse_markdown_sections(markdown_text: str) -> Dict[str, Union[str, List[str
         markdown_text (str): The markdown text to parse
         
     Returns:
-        Dict[str, Union[str, List[str]]]: A dictionary with 'description', 'acceptance_criteria', 
-        'backend_changes', and 'frontend_changes' keys
+        Dict[str, Union[str, List[str], List[Dict[str, str]]]]: A dictionary with 'description', 'acceptance_criteria', 
+        'backend_changes', and 'frontend_changes' keys. Dictionaries with 'title' and 'description' keys.
         
     Example:
         Input:
@@ -37,10 +65,12 @@ def parse_markdown_sections(markdown_text: str) -> Dict[str, Union[str, List[str
         - The system verifies the entered email and password...
         
         ## Backend Changes
-        - Implement user authentication logic...
+        - **Title: Implement User Authentication** - Create authentication service with JWT tokens
+        - **Title: Add Password Hashing** - Implement bcrypt password hashing for security
         
         ## Frontend Changes
-        - Design and implement a login form...
+        - **Title: Create Login Form** - Design responsive login form with validation
+        - **Title: Add Error Handling** - Implement user-friendly error messages
         
         Output:
         {
@@ -50,10 +80,12 @@ def parse_markdown_sections(markdown_text: str) -> Dict[str, Union[str, List[str
                 "The system verifies the entered email and password..."
             ],
             "backend_changes": [
-                "Implement user authentication logic..."
+                {"title": "Implement User Authentication", "description": "Create authentication service with JWT tokens"},
+                {"title": "Add Password Hashing", "description": "Implement bcrypt password hashing for security"}
             ],
             "frontend_changes": [
-                "Design and implement a login form..."
+                {"title": "Create Login Form", "description": "Design responsive login form with validation"},
+                {"title": "Add Error Handling", "description": "Implement user-friendly error messages"}
             ]
         }
     """
@@ -79,25 +111,17 @@ def parse_markdown_sections(markdown_text: str) -> Dict[str, Union[str, List[str
             if line and not line.startswith('##'):
                 result["acceptance_criteria"].append(line)
     
-    # Extract Backend Changes section
+    # Extract Backend Changes section with title parsing
     backend_match = re.search(r'## Backend Changes\n(.*?)(?=\n\n## )', markdown_text, re.DOTALL)
     if backend_match:
         backend_text = backend_match.group(1).strip()
-        # Split by lines and clean up bullet points
-        for line in backend_text.split('\n'):
-            line = _clean_bullet_point(line)
-            if line and not line.startswith('##'):
-                result["backend_changes"].append(line)
+        result["backend_changes"] = _parse_changes_with_titles(backend_text)
     
-    # Extract Frontend Changes section
+    # Extract Frontend Changes section with title parsing
     frontend_match = re.search(r'## Frontend Changes\n(.*?)(?=\n\n## |$)', markdown_text, re.DOTALL)
     if frontend_match:
         frontend_text = frontend_match.group(1).strip()
-        # Split by lines and clean up bullet points
-        for line in frontend_text.split('\n'):
-            line = _clean_bullet_point(line)
-            if line and not line.startswith('##'):
-                result["frontend_changes"].append(line)
+        result["frontend_changes"] = _parse_changes_with_titles(frontend_text)
     
     return result
 
