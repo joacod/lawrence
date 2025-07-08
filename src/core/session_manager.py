@@ -136,6 +136,27 @@ class SessionManager:
                 })
         
         self.data_store.update_session_field(session_id, "questions", existing_questions)
+    
+    def add_questions_with_priorities(self, session_id: str, questions_with_priorities: List[Dict]) -> None:
+        """Add questions with their calculated priorities."""
+        existing_questions = self.get_questions(session_id)
+        existing_question_texts = {q['question'] for q in existing_questions}
+        
+        # Add only new questions with their priorities
+        for question_data in questions_with_priorities:
+            question_text = question_data.get('question', '')
+            if question_text and question_text not in existing_question_texts:
+                existing_questions.append({
+                    'question': question_text,
+                    'status': 'pending',
+                    'user_answer': None,
+                    'feature_type': question_data.get('feature_type', 'general'),
+                    'priority': question_data.get('priority', 'medium'),
+                    'priority_score': question_data.get('priority_score', 0.0),
+                    'priority_reasoning': question_data.get('priority_reasoning', '')
+                })
+        
+        self.data_store.update_session_field(session_id, "questions", existing_questions)
 
     def set_questions(self, session_id: str, questions: List[Dict]) -> None:
         """Set the questions list for a session (replaces existing)"""
@@ -193,6 +214,29 @@ class SessionManager:
         """Get all questions for a session filtered by priority"""
         questions = self.get_questions(session_id)
         return [q for q in questions if q.get('priority', 'medium') == priority]
+    
+    def get_questions_ordered_by_priority(self, session_id: str) -> List[Dict]:
+        """Get all questions for a session ordered by priority (critical -> high -> medium -> low)"""
+        questions = self.get_questions(session_id)
+        priority_order = ['critical', 'high', 'medium', 'low']
+        
+        def priority_key(question):
+            priority = question.get('priority', 'medium')
+            return priority_order.index(priority) if priority in priority_order else len(priority_order)
+        
+        return sorted(questions, key=priority_key)
+    
+    def get_priority_summary(self, session_id: str) -> Dict[str, int]:
+        """Get a summary of question priorities for a session."""
+        questions = self.get_questions(session_id)
+        summary = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0}
+        
+        for question in questions:
+            priority = question.get('priority', 'medium')
+            if priority in summary:
+                summary[priority] += 1
+        
+        return summary
 
     # ========================================================================
     # SESSION DATA AGGREGATION & TRANSFORMATION

@@ -3,7 +3,7 @@ PO Agent
 Product Owner agent for feature clarification and documentation.
 Uses the base agent framework with conversation history support.
 """
-from typing import List
+from typing import List, Dict
 import json
 from datetime import datetime, timezone
 from langchain_core.messages import HumanMessage, AIMessage
@@ -14,6 +14,7 @@ from src.core.session_manager import SessionManager
 from src.agents.question_analysis_agent import QuestionAnalysisAgent
 from src.config.settings import settings
 from src.utils.feature_classifier import FeatureTypeClassifier
+from src.utils.question_prioritizer import QuestionPrioritizer
 from .base import ConversationalAgent
 
 class POAgent(ConversationalAgent):
@@ -34,6 +35,7 @@ class POAgent(ConversationalAgent):
         self.session_manager = SessionManager()
         self.question_analysis_agent = QuestionAnalysisAgent()
         self.feature_classifier = FeatureTypeClassifier()
+        self.question_prioritizer = QuestionPrioritizer()
 
     def _classify_user_intent(self, user_input: str, existing_questions: List[dict]) -> str:
         """
@@ -201,23 +203,32 @@ class POAgent(ConversationalAgent):
                     self.logger.info(f"After deduplication: {len(filtered_questions)} questions remaining")
                     
                     if filtered_questions and isinstance(filtered_questions[0], str):
-                        self.session_manager.add_questions(session_id, filtered_questions, feature_type)
+                        # Prioritize and add questions
+                        questions_with_priorities = self._prioritize_questions(filtered_questions, feature_type)
+                        self.session_manager.add_questions_with_priorities(session_id, questions_with_priorities)
                     elif filtered_questions and isinstance(filtered_questions[0], dict):
                         # Add only questions that don't already exist
                         existing_question_texts = {q['question'] for q in existing_questions}
+                        questions_to_add = []
                         for new_q in filtered_questions:
                             if new_q.get('question') not in existing_question_texts:
-                                self.session_manager.add_questions(session_id, [new_q['question']], feature_type)
+                                questions_to_add.append(new_q['question'])
+                        
+                        if questions_to_add:
+                            questions_with_priorities = self._prioritize_questions(questions_to_add, feature_type)
+                            self.session_manager.add_questions_with_priorities(session_id, questions_with_priorities)
             else:
-                # For new features, set the questions as before
+                # For new features, prioritize and set the questions
                 new_questions = output.get("questions", [])
                 if new_questions and isinstance(new_questions[0], str):
-                    self.session_manager.add_questions(session_id, new_questions, feature_type)
+                    # Prioritize and add questions
+                    questions_with_priorities = self._prioritize_questions(new_questions, feature_type)
+                    self.session_manager.add_questions_with_priorities(session_id, questions_with_priorities)
                 elif new_questions and isinstance(new_questions[0], dict):
                     self.session_manager.set_questions(session_id, new_questions)
 
-            # Always include all questions with their status and user_answer
-            all_questions = self.session_manager.get_questions(session_id)
+            # Always include all questions with their status and user_answer, ordered by priority
+            all_questions = self.session_manager.get_questions_ordered_by_priority(session_id)
             output["questions"] = all_questions
 
             # Calculate progress
@@ -272,6 +283,37 @@ class POAgent(ConversationalAgent):
         classification = self.feature_classifier.classify(feature_description)
         self.logger.info(f"Feature type detected: {classification.primary_type} (confidence: {classification.confidence:.2f})")
         return classification.primary_type
+    
+    def _prioritize_questions(self, questions: List[str], feature_type: str) -> List[Dict]:
+        """
+        Prioritize questions using the question prioritizer.
+        
+        Args:
+            questions (List[str]): List of questions to prioritize
+            feature_type (str): The feature type for context
+            
+        Returns:
+            List[Dict]: List of questions with priority information
+        """
+        if not questions:
+            return []
+        
+        # Get prioritized questions
+        prioritized_questions = self.question_prioritizer.prioritize_questions(questions, feature_type)
+        
+        # Convert to dictionary format for session manager
+        questions_with_priorities = []
+        for pq in prioritized_questions:
+            questions_with_priorities.append({
+                'question': pq.question,
+                'feature_type': feature_type,
+                'priority': pq.priority.value,
+                'priority_score': pq.score,
+                'priority_reasoning': pq.reasoning
+            })
+        
+        self.logger.info(f"Prioritized {len(questions_with_priorities)} questions for {feature_type} feature")
+        return questions_with_priorities
 
     def _extract_title_from_markdown(self, markdown: str, session_id: str) -> str:
         """Extract title from markdown and set it for the session"""
