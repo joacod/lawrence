@@ -15,6 +15,7 @@ from src.agents.question_analysis_agent import QuestionAnalysisAgent
 from src.config.settings import settings
 from src.utils.feature_classifier import FeatureTypeClassifier
 from src.utils.question_prioritizer import QuestionPrioritizer
+from src.utils.context_analyzer import ContextAnalyzer
 from .base import ConversationalAgent
 
 class POAgent(ConversationalAgent):
@@ -36,6 +37,7 @@ class POAgent(ConversationalAgent):
         self.question_analysis_agent = QuestionAnalysisAgent()
         self.feature_classifier = FeatureTypeClassifier()
         self.question_prioritizer = QuestionPrioritizer()
+        self.context_analyzer = ContextAnalyzer()
 
     def _classify_user_intent(self, user_input: str, existing_questions: List[dict]) -> str:
         """
@@ -194,7 +196,11 @@ class POAgent(ConversationalAgent):
 
             # Handle questions based on whether this is a follow-up or new feature
             if is_followup:
-                # For follow-ups, only add NEW questions, don't replace existing ones
+                # For follow-ups, get enhanced context and add contextual questions
+                enhanced_context = self._get_enhanced_context(session_id, feature_type)
+                contextual_questions = enhanced_context.get('contextual_questions', [])
+                
+                # Get new questions from the model
                 new_questions = output.get("questions", [])
                 if new_questions:
                     self.logger.info(f"Processing {len(new_questions)} new questions for follow-up")
@@ -202,21 +208,25 @@ class POAgent(ConversationalAgent):
                     filtered_questions = self._filter_duplicate_questions(new_questions, existing_questions)
                     self.logger.info(f"After deduplication: {len(filtered_questions)} questions remaining")
                     
+                    # Combine model questions with contextual questions
+                    all_new_questions = []
                     if filtered_questions and isinstance(filtered_questions[0], str):
-                        # Prioritize and add questions
-                        questions_with_priorities = self._prioritize_questions(filtered_questions, feature_type)
-                        self.session_manager.add_questions_with_priorities(session_id, questions_with_priorities)
+                        all_new_questions.extend(filtered_questions)
                     elif filtered_questions and isinstance(filtered_questions[0], dict):
                         # Add only questions that don't already exist
                         existing_question_texts = {q['question'] for q in existing_questions}
-                        questions_to_add = []
                         for new_q in filtered_questions:
                             if new_q.get('question') not in existing_question_texts:
-                                questions_to_add.append(new_q['question'])
-                        
-                        if questions_to_add:
-                            questions_with_priorities = self._prioritize_questions(questions_to_add, feature_type)
-                            self.session_manager.add_questions_with_priorities(session_id, questions_with_priorities)
+                                all_new_questions.append(new_q['question'])
+                    
+                    # Add contextual questions
+                    all_new_questions.extend(contextual_questions)
+                    
+                    if all_new_questions:
+                        # Remove duplicates
+                        unique_questions = list(dict.fromkeys(all_new_questions))
+                        questions_with_priorities = self._prioritize_questions(unique_questions, feature_type)
+                        self.session_manager.add_questions_with_priorities(session_id, questions_with_priorities)
             else:
                 # For new features, prioritize and set the questions
                 new_questions = output.get("questions", [])
@@ -314,6 +324,55 @@ class POAgent(ConversationalAgent):
         
         self.logger.info(f"Prioritized {len(questions_with_priorities)} questions for {feature_type} feature")
         return questions_with_priorities
+    
+    def _get_enhanced_context(self, session_id: str, feature_type: str) -> Dict:
+        """
+        Get enhanced context for question generation.
+        
+        Args:
+            session_id (str): The session ID
+            feature_type (str): The feature type
+            
+        Returns:
+            Dict: Enhanced context information
+        """
+        # Get conversation history
+        chat_history = self.session_manager.get_chat_history(session_id)
+        
+        # Convert chat history to the format expected by context analyzer
+        conversation_history = []
+        for message in chat_history:
+            if hasattr(message, 'content'):
+                message_type = 'human' if hasattr(message, '__class__') and 'Human' in message.__class__.__name__ else 'ai'
+                conversation_history.append({
+                    'type': message_type,
+                    'content': str(message.content)
+                })
+        
+        # Get answered and pending questions
+        all_questions = self.session_manager.get_questions(session_id)
+        answered_questions = [q for q in all_questions if q["status"] in ("answered", "disregarded")]
+        pending_questions = [q for q in all_questions if q["status"] == "pending"]
+        
+        # Get context insights
+        context_insight = self.context_analyzer.analyze_context(
+            conversation_history, answered_questions, pending_questions, feature_type
+        )
+        
+        # Generate contextual questions
+        contextual_questions = self.context_analyzer.generate_contextual_questions(
+            context_insight, feature_type, [q.get('question', '') for q in pending_questions]
+        )
+        
+        self.logger.info(f"Generated {len(contextual_questions)} contextual questions based on conversation analysis")
+        
+        return {
+            'context_insight': context_insight,
+            'contextual_questions': contextual_questions,
+            'conversation_history': conversation_history,
+            'answered_questions': answered_questions,
+            'pending_questions': pending_questions
+        }
 
     def _extract_title_from_markdown(self, markdown: str, session_id: str) -> str:
         """Extract title from markdown and set it for the session"""
@@ -346,14 +405,22 @@ class POAgent(ConversationalAgent):
         """
         new_question_lower = new_question.lower()
         
-        # Keywords to check for similarity
+        # Enhanced keywords to check for similarity with more granular categories
         similarity_keywords = {
-            '2fa': ['two factor', 'two-factor', '2fa', 'authentication'],
-            'password_reset': ['forgotten password', 'password reset', 'password recovery', 'reset password'],
-            'registration': ['register', 'registration', 'sign up', 'account creation'],
-            'password_complexity': ['password complexity', 'password rules', 'password requirements'],
-            'security': ['security measures', 'security', 'protection', 'lock'],
-            'email': ['email verification', 'email link', 'email code', 'email reset']
+            '2fa': ['two factor', 'two-factor', '2fa', 'authentication', 'additional authentication'],
+            'password_reset': ['forgotten password', 'password reset', 'password recovery', 'reset password', 'forgot password'],
+            'registration': ['register', 'registration', 'sign up', 'account creation', 'new account'],
+            'password_complexity': [
+                'password complexity', 'password rules', 'password requirements', 'minimum length', 
+                'special characters', 'uppercase', 'lowercase', 'numbers', 'characters', 'password strength'
+            ],
+            'password_attempts': [
+                'wrong password', 'incorrect password', 'failed attempts', 'attempts', 'wrong attempts',
+                'lock account', 'lockout', 'brute force', 'wait', 'hour', 'minutes', 'block'
+            ],
+            'security': ['security measures', 'security', 'protection', 'lock', 'secure'],
+            'email': ['email verification', 'email link', 'email code', 'email reset', 'email'],
+            'user_management': ['user', 'account', 'profile', 'user type', 'role']
         }
         
         for category, keywords in similarity_keywords.items():
@@ -367,10 +434,16 @@ class POAgent(ConversationalAgent):
                     existing_has_keywords = any(keyword in existing_text for keyword in keywords)
                     
                     if existing_has_keywords:
-                        # Additional check: if both questions are about the same topic
-                        # and the new one is just a variation, consider it similar
-                        if self._are_questions_about_same_topic(new_question_lower, existing_text):
-                            return True
+                        # Check if the existing question is already answered
+                        if existing_q.get('status') == 'answered':
+                            # If the existing question is answered and covers the same topic,
+                            # the new question is redundant
+                            if self._are_questions_about_same_topic(new_question_lower, existing_text):
+                                return True
+                        else:
+                            # If the existing question is pending, check if they're asking the same thing
+                            if self._are_questions_about_same_topic(new_question_lower, existing_text):
+                                return True
         
         return False
     
@@ -385,21 +458,42 @@ class POAgent(ConversationalAgent):
         Returns:
             bool: True if questions are about the same topic
         """
-        # Extract key topic words from questions
+        # Extract key topic words from questions with more granular detection
         def extract_topics(question: str) -> set:
             topics = set()
-            if '2fa' in question or 'two factor' in question or 'authentication' in question:
+            
+            # Authentication topics
+            if any(word in question for word in ['2fa', 'two factor', 'authentication', 'additional authentication']):
                 topics.add('2fa')
-            if 'password' in question and ('reset' in question or 'recovery' in question or 'forgotten' in question):
+            
+            # Password reset topics
+            if any(word in question for word in ['password reset', 'forgotten password', 'forgot password', 'password recovery']):
                 topics.add('password_reset')
-            if 'register' in question or 'account' in question:
+            
+            # Registration topics
+            if any(word in question for word in ['register', 'registration', 'sign up', 'account creation']):
                 topics.add('registration')
-            if 'password' in question and ('complexity' in question or 'rules' in question):
+            
+            # Password complexity topics
+            if any(word in question for word in ['password complexity', 'password rules', 'password requirements', 'minimum length', 'special characters', 'uppercase', 'lowercase', 'numbers']):
                 topics.add('password_complexity')
+            
+            # Password attempts/security topics
+            if any(word in question for word in ['wrong password', 'incorrect password', 'failed attempts', 'attempts', 'lock account', 'lockout', 'brute force', 'wait', 'hour']):
+                topics.add('password_attempts')
+            
+            # General security topics
             if 'security' in question:
                 topics.add('security')
+            
+            # Email topics
             if 'email' in question:
                 topics.add('email')
+            
+            # User management topics
+            if any(word in question for word in ['user', 'account', 'profile', 'role']):
+                topics.add('user_management')
+            
             return topics
         
         topics1 = extract_topics(question1)
@@ -431,8 +525,36 @@ class POAgent(ConversationalAgent):
             
             # Check if this question is similar to existing ones
             if not self._is_similar_question(question_text, existing_questions):
-                filtered_questions.append(new_q)
+                # Additional check: ensure the question hasn't been answered in recent user input
+                if not self._is_question_already_answered(question_text, existing_questions):
+                    filtered_questions.append(new_q)
+                else:
+                    self.logger.info(f"Filtered out already answered question: {question_text[:50]}...")
             else:
                 self.logger.info(f"Filtered out duplicate question: {question_text[:50]}...")
         
-        return filtered_questions 
+        return filtered_questions
+    
+    def _is_question_already_answered(self, question_text: str, existing_questions: List[dict]) -> bool:
+        """
+        Check if a question has already been answered by the user.
+        
+        Args:
+            question_text (str): The question to check
+            existing_questions (List[dict]): List of existing questions
+            
+        Returns:
+            bool: True if the question has already been answered
+        """
+        question_lower = question_text.lower()
+        
+        # Check if any answered question covers the same topic
+        for existing_q in existing_questions:
+            if existing_q.get('status') == 'answered':
+                existing_text = existing_q.get('question', '').lower()
+                
+                # If they're about the same topic and the existing one is answered
+                if self._are_questions_about_same_topic(question_lower, existing_text):
+                    return True
+        
+        return False 
