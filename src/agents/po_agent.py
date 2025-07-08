@@ -16,6 +16,7 @@ from src.config.settings import settings
 from src.utils.feature_classifier import FeatureTypeClassifier
 from src.utils.question_prioritizer import QuestionPrioritizer
 from src.utils.context_analyzer import ContextAnalyzer
+from src.utils.question_processor import QuestionProcessor
 from .base import ConversationalAgent
 
 class POAgent(ConversationalAgent):
@@ -38,6 +39,7 @@ class POAgent(ConversationalAgent):
         self.feature_classifier = FeatureTypeClassifier()
         self.question_prioritizer = QuestionPrioritizer()
         self.context_analyzer = ContextAnalyzer()
+        self.question_processor = QuestionProcessor()
 
     def _classify_user_intent(self, user_input: str, existing_questions: List[dict]) -> str:
         """
@@ -194,48 +196,33 @@ class POAgent(ConversationalAgent):
                 "input": feature_input
             })
 
-            # Handle questions based on whether this is a follow-up or new feature
-            if is_followup:
-                # For follow-ups, get enhanced context and add contextual questions
-                enhanced_context = self._get_enhanced_context(session_id, feature_type)
-                contextual_questions = enhanced_context.get('contextual_questions', [])
-                
-                # Get new questions from the model
-                new_questions = output.get("questions", [])
-                if new_questions:
-                    self.logger.info(f"Processing {len(new_questions)} new questions for follow-up")
-                    # Filter out duplicate/similar questions
-                    filtered_questions = self._filter_duplicate_questions(new_questions, existing_questions)
-                    self.logger.info(f"After deduplication: {len(filtered_questions)} questions remaining")
+            # Handle questions using unified processor for optimal performance
+            new_questions = output.get("questions", [])
+            if new_questions:
+                if isinstance(new_questions[0], str):
+                    # Use unified processor for optimal performance
+                    processed_questions = await self._process_questions_unified(new_questions, session_id, feature_type)
                     
-                    # Combine model questions with contextual questions
-                    all_new_questions = []
-                    if filtered_questions and isinstance(filtered_questions[0], str):
-                        all_new_questions.extend(filtered_questions)
-                    elif filtered_questions and isinstance(filtered_questions[0], dict):
+                    if is_followup:
+                        # For follow-ups, add new questions to existing ones
+                        self.session_manager.add_questions_with_priorities(session_id, processed_questions)
+                    else:
+                        # For new features, set the questions
+                        self.session_manager.set_questions(session_id, processed_questions)
+                elif isinstance(new_questions[0], dict):
+                    # Handle case where questions are already in dict format
+                    if is_followup:
                         # Add only questions that don't already exist
                         existing_question_texts = {q['question'] for q in existing_questions}
-                        for new_q in filtered_questions:
+                        questions_to_add = []
+                        for new_q in new_questions:
                             if new_q.get('question') not in existing_question_texts:
-                                all_new_questions.append(new_q['question'])
-                    
-                    # Add contextual questions
-                    all_new_questions.extend(contextual_questions)
-                    
-                    if all_new_questions:
-                        # Remove duplicates
-                        unique_questions = list(dict.fromkeys(all_new_questions))
-                        questions_with_priorities = self._prioritize_questions(unique_questions, feature_type)
-                        self.session_manager.add_questions_with_priorities(session_id, questions_with_priorities)
-            else:
-                # For new features, prioritize and set the questions
-                new_questions = output.get("questions", [])
-                if new_questions and isinstance(new_questions[0], str):
-                    # Prioritize and add questions
-                    questions_with_priorities = self._prioritize_questions(new_questions, feature_type)
-                    self.session_manager.add_questions_with_priorities(session_id, questions_with_priorities)
-                elif new_questions and isinstance(new_questions[0], dict):
-                    self.session_manager.set_questions(session_id, new_questions)
+                                questions_to_add.append(new_q)
+                        
+                        if questions_to_add:
+                            self.session_manager.add_questions_with_priorities(session_id, questions_to_add)
+                    else:
+                        self.session_manager.set_questions(session_id, new_questions)
 
             # Always include all questions with their status and user_answer, ordered by priority
             all_questions = self.session_manager.get_questions_ordered_by_priority(session_id)
@@ -324,6 +311,48 @@ class POAgent(ConversationalAgent):
         
         self.logger.info(f"Prioritized {len(questions_with_priorities)} questions for {feature_type} feature")
         return questions_with_priorities
+    
+    async def _process_questions_unified(self, questions: List[str], session_id: str, feature_type: str) -> List[Dict]:
+        """
+        Process questions using the unified processor for optimal performance.
+        
+        Args:
+            questions (List[str]): Raw questions from LLM
+            session_id (str): Session ID for caching
+            feature_type (str): Detected feature type
+            
+        Returns:
+            List[Dict]: Processed questions with all metadata
+        """
+        # Get conversation history and questions
+        chat_history = self.session_manager.get_chat_history(session_id)
+        all_questions = self.session_manager.get_questions(session_id)
+        answered_questions = [q for q in all_questions if q["status"] in ("answered", "disregarded")]
+        pending_questions = [q for q in all_questions if q["status"] == "pending"]
+        
+        # Convert chat history to the format expected by processor
+        conversation_history = []
+        for message in chat_history:
+            if hasattr(message, 'content'):
+                message_type = 'human' if hasattr(message, '__class__') and 'Human' in message.__class__.__name__ else 'ai'
+                conversation_history.append({
+                    'type': message_type,
+                    'content': str(message.content)
+                })
+        
+        # Process questions using unified processor
+        processed_result = await self.question_processor.process_questions(
+            questions=questions,
+            conversation_history=conversation_history,
+            answered_questions=answered_questions,
+            pending_questions=pending_questions,
+            session_id=session_id
+        )
+        
+        self.logger.info(f"Unified processing completed in {processed_result.processing_time:.3f}s")
+        self.logger.info(f"Generated {processed_result.total_questions} questions ({processed_result.contextual_count} contextual)")
+        
+        return processed_result.questions
     
     def _get_enhanced_context(self, session_id: str, feature_type: str) -> Dict:
         """
