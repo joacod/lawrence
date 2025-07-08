@@ -13,6 +13,7 @@ from src.utils.parsers.markdown_parser import extract_title_from_markdown
 from src.core.session_manager import SessionManager
 from src.agents.question_analysis_agent import QuestionAnalysisAgent
 from src.config.settings import settings
+from src.utils.feature_classifier import FeatureTypeClassifier
 from .base import ConversationalAgent
 
 class POAgent(ConversationalAgent):
@@ -32,6 +33,7 @@ class POAgent(ConversationalAgent):
         super().__init__(agent_type="po")
         self.session_manager = SessionManager()
         self.question_analysis_agent = QuestionAnalysisAgent()
+        self.feature_classifier = FeatureTypeClassifier()
 
     def _classify_user_intent(self, user_input: str, existing_questions: List[dict]) -> str:
         """
@@ -128,9 +130,18 @@ class POAgent(ConversationalAgent):
         created_at, updated_at = self.session_manager.get_session_timestamps(session_id)
         chat_history = self.session_manager.get_chat_history(session_id)
 
-        # Check if this is a follow-up to existing questions
+        # Detect feature type for new features
         existing_questions = self.session_manager.get_questions(session_id)
         is_followup = len(existing_questions) > 0 and len(chat_history) > 0
+        
+        if not is_followup:
+            # For new features, detect the feature type
+            feature_type = self._detect_feature_type(feature)
+            self.session_manager.set_session_feature_type(session_id, feature_type)
+            self.logger.info(f"New feature detected as type: {feature_type}")
+        else:
+            # For follow-ups, use existing feature type
+            feature_type = self.session_manager.get_session_feature_type(session_id)
         
         if is_followup:
             self.logger.info("Processing follow-up response to existing questions")
@@ -172,9 +183,11 @@ class POAgent(ConversationalAgent):
             self.logger.info("Getting conversational response from model")
             
             # Use the base agent's invoke method with automatic retry handling
+            # Include feature type information in the input
+            feature_input = f"FEATURE TYPE: {feature_type}\n\nUSER INPUT: {feature}"
             output = await self.invoke({
                 "chat_history": chat_history,
-                "input": feature
+                "input": feature_input
             })
 
             # Handle questions based on whether this is a follow-up or new feature
@@ -188,18 +201,18 @@ class POAgent(ConversationalAgent):
                     self.logger.info(f"After deduplication: {len(filtered_questions)} questions remaining")
                     
                     if filtered_questions and isinstance(filtered_questions[0], str):
-                        self.session_manager.add_questions(session_id, filtered_questions)
+                        self.session_manager.add_questions(session_id, filtered_questions, feature_type)
                     elif filtered_questions and isinstance(filtered_questions[0], dict):
                         # Add only questions that don't already exist
                         existing_question_texts = {q['question'] for q in existing_questions}
                         for new_q in filtered_questions:
                             if new_q.get('question') not in existing_question_texts:
-                                self.session_manager.add_questions(session_id, [new_q['question']])
+                                self.session_manager.add_questions(session_id, [new_q['question']], feature_type)
             else:
                 # For new features, set the questions as before
                 new_questions = output.get("questions", [])
                 if new_questions and isinstance(new_questions[0], str):
-                    self.session_manager.add_questions(session_id, new_questions)
+                    self.session_manager.add_questions(session_id, new_questions, feature_type)
                 elif new_questions and isinstance(new_questions[0], dict):
                     self.session_manager.set_questions(session_id, new_questions)
 
@@ -245,6 +258,20 @@ class POAgent(ConversationalAgent):
                 context_parts.append(f"{type(message).__name__}: {content}")
         
         return "\n".join(context_parts)
+
+    def _detect_feature_type(self, feature_description: str) -> str:
+        """
+        Detect the feature type using the feature classifier.
+        
+        Args:
+            feature_description (str): The feature description to classify
+            
+        Returns:
+            str: The detected feature type
+        """
+        classification = self.feature_classifier.classify(feature_description)
+        self.logger.info(f"Feature type detected: {classification.primary_type} (confidence: {classification.confidence:.2f})")
+        return classification.primary_type
 
     def _extract_title_from_markdown(self, markdown: str, session_id: str) -> str:
         """Extract title from markdown and set it for the session"""

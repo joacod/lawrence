@@ -119,7 +119,7 @@ class SessionManager:
         """Get all questions for a session"""
         return self.data_store.get_session_field(session_id, "questions", [])
 
-    def add_questions(self, session_id: str, new_questions: List[str]) -> None:
+    def add_questions(self, session_id: str, new_questions: List[str], feature_type: str = "general", priority: str = "medium") -> None:
         """Add new questions to the session as pending if not already present"""
         existing_questions = self.get_questions(session_id)
         existing_question_texts = {q['question'] for q in existing_questions}
@@ -130,7 +130,9 @@ class SessionManager:
                 existing_questions.append({
                     'question': question_text,
                     'status': 'pending',
-                    'user_answer': None
+                    'user_answer': None,
+                    'feature_type': feature_type,
+                    'priority': priority
                 })
         
         self.data_store.update_session_field(session_id, "questions", existing_questions)
@@ -173,6 +175,24 @@ class SessionManager:
         """Get all disregarded questions for a session"""
         questions = self.get_questions(session_id)
         return [q for q in questions if q['status'] == 'disregarded']
+
+    def set_session_feature_type(self, session_id: str, feature_type: str) -> None:
+        """Set the feature type for a session"""
+        self.data_store.update_session_field(session_id, "feature_type", feature_type)
+
+    def get_session_feature_type(self, session_id: str) -> str:
+        """Get the feature type for a session"""
+        return self.data_store.get_session_field(session_id, "feature_type", "general")
+
+    def get_questions_by_feature_type(self, session_id: str, feature_type: str) -> List[Dict]:
+        """Get all questions for a session filtered by feature type"""
+        questions = self.get_questions(session_id)
+        return [q for q in questions if q.get('feature_type', 'general') == feature_type]
+
+    def get_questions_by_priority(self, session_id: str, priority: str) -> List[Dict]:
+        """Get all questions for a session filtered by priority"""
+        questions = self.get_questions(session_id)
+        return [q for q in questions if q.get('priority', 'medium') == priority]
 
     # ========================================================================
     # SESSION DATA AGGREGATION & TRANSFORMATION
