@@ -3,7 +3,7 @@ PO Agent
 Product Owner agent for feature clarification and documentation.
 Uses the base agent framework with conversation history support.
 """
-from typing import List
+from typing import List, Dict
 import json
 from datetime import datetime, timezone
 from langchain_core.messages import HumanMessage, AIMessage
@@ -13,6 +13,13 @@ from src.utils.parsers.markdown_parser import extract_title_from_markdown
 from src.core.session_manager import SessionManager
 from src.agents.question_analysis_agent import QuestionAnalysisAgent
 from src.config.settings import settings
+from src.utils.feature_classifier import FeatureTypeClassifier
+from src.utils.question_prioritizer import QuestionPrioritizer
+from src.utils.context_analyzer import ContextAnalyzer
+from src.utils.question_processor import QuestionProcessor
+from src.utils.intent_classifier import IntentClassifier
+from src.utils.question_matcher import QuestionMatcher
+from src.utils.question_deduplicator import QuestionDeduplicator
 from .base import ConversationalAgent
 
 class POAgent(ConversationalAgent):
@@ -32,6 +39,13 @@ class POAgent(ConversationalAgent):
         super().__init__(agent_type="po")
         self.session_manager = SessionManager()
         self.question_analysis_agent = QuestionAnalysisAgent()
+        self.feature_classifier = FeatureTypeClassifier()
+        self.question_prioritizer = QuestionPrioritizer()
+        self.context_analyzer = ContextAnalyzer()
+        self.question_processor = QuestionProcessor()
+        self.intent_classifier = IntentClassifier()
+        self.question_matcher = QuestionMatcher()
+        self.question_deduplicator = QuestionDeduplicator()
 
     def _classify_user_intent(self, user_input: str, existing_questions: List[dict]) -> str:
         """
@@ -44,35 +58,7 @@ class POAgent(ConversationalAgent):
         Returns:
             str: 'new_feature', 'question_answer', or 'clarification'
         """
-        # Simple heuristics for intent classification
-        input_lower = user_input.lower()
-        
-        # Check if input looks like an answer to a specific question
-        if existing_questions:
-            # Look for patterns that suggest answering specific questions
-            answer_indicators = [
-                'more than', 'at least', 'minimum', 'maximum', 'between',
-                'yes', 'no', 'not', 'never', 'always', 'only', 'just',
-                'characters', 'uppercase', 'lowercase', 'numbers', 'special',
-                'attempts', 'wait', 'hour', 'minutes', 'seconds',
-                'email', 'password', 'username', 'login', 'register'
-            ]
-            
-            # If input contains specific answer patterns and there are pending questions
-            if any(indicator in input_lower for indicator in answer_indicators):
-                return 'question_answer'
-        
-        # Check if input looks like a new feature description
-        new_feature_indicators = [
-            'i want', 'i need', 'create', 'build', 'implement', 'add',
-            'feature', 'system', 'application', 'website', 'app'
-        ]
-        
-        if any(indicator in input_lower for indicator in new_feature_indicators):
-            return 'new_feature'
-        
-        # Default to question answer if there are existing questions
-        return 'question_answer' if existing_questions else 'new_feature'
+        return self.intent_classifier.classify_intent(user_input, existing_questions)
 
     def _find_matching_question(self, user_input: str, pending_questions: List[dict]) -> dict | None:
         """
@@ -85,33 +71,7 @@ class POAgent(ConversationalAgent):
         Returns:
             dict | None: The matching question or None
         """
-        input_lower = user_input.lower()
-        
-        # Simple keyword matching for now - could be enhanced with semantic similarity
-        for question in pending_questions:
-            question_text = question.get('question', '').lower()
-            
-            # Check for password complexity related keywords
-            if any(keyword in question_text for keyword in ['password', 'complexity', 'rules', 'length', 'characters']):
-                if any(keyword in input_lower for keyword in ['character', 'uppercase', 'lowercase', 'number', 'special', 'minimum', 'maximum']):
-                    return question
-            
-            # Check for security measures
-            if any(keyword in question_text for keyword in ['security', 'two-factor', '2fa', 'captcha', 'authentication']):
-                if any(keyword in input_lower for keyword in ['attempt', 'wait', 'hour', 'lock', 'block']):
-                    return question
-            
-            # Check for registration
-            if any(keyword in question_text for keyword in ['register', 'account', 'existing']):
-                if any(keyword in input_lower for keyword in ['register', 'account', 'email']):
-                    return question
-            
-            # Check for password reset
-            if any(keyword in question_text for keyword in ['forgotten', 'reset', 'recovery']):
-                if any(keyword in input_lower for keyword in ['reset', 'forgot', 'recovery', 'email']):
-                    return question
-        
-        return None
+        return self.question_matcher.find_matching_question(user_input, pending_questions)
 
     async def process_feature(self, feature: str, session_id: str | None = None) -> tuple[str, str, str, str, list, int, int, datetime, datetime]:
         """
@@ -128,9 +88,18 @@ class POAgent(ConversationalAgent):
         created_at, updated_at = self.session_manager.get_session_timestamps(session_id)
         chat_history = self.session_manager.get_chat_history(session_id)
 
-        # Check if this is a follow-up to existing questions
+        # Detect feature type for new features
         existing_questions = self.session_manager.get_questions(session_id)
         is_followup = len(existing_questions) > 0 and len(chat_history) > 0
+        
+        if not is_followup:
+            # For new features, detect the feature type
+            feature_type = self._detect_feature_type(feature)
+            self.session_manager.set_session_feature_type(session_id, feature_type)
+            self.logger.info(f"New feature detected as type: {feature_type}")
+        else:
+            # For follow-ups, use existing feature type
+            feature_type = self.session_manager.get_session_feature_type(session_id)
         
         if is_followup:
             self.logger.info("Processing follow-up response to existing questions")
@@ -172,39 +141,40 @@ class POAgent(ConversationalAgent):
             self.logger.info("Getting conversational response from model")
             
             # Use the base agent's invoke method with automatic retry handling
+            # Include feature type information in the input
+            feature_input = f"FEATURE TYPE: {feature_type}\n\nUSER INPUT: {feature}"
             output = await self.invoke({
                 "chat_history": chat_history,
-                "input": feature
+                "input": feature_input
             })
 
-            # Handle questions based on whether this is a follow-up or new feature
-            if is_followup:
-                # For follow-ups, only add NEW questions, don't replace existing ones
-                new_questions = output.get("questions", [])
-                if new_questions:
-                    self.logger.info(f"Processing {len(new_questions)} new questions for follow-up")
-                    # Filter out duplicate/similar questions
+            # Handle questions using unified processor for optimal performance
+            new_questions = output.get("questions", [])
+            if new_questions:
+                if isinstance(new_questions[0], str):
+                    # Use unified processor for optimal performance
+                    processed_questions = await self._process_questions_unified(new_questions, session_id, feature_type)
+                    # Filter out duplicates and already answered questions
+                    filtered_questions = self._filter_duplicate_questions(processed_questions, existing_questions)
+                    if is_followup:
+                        # For follow-ups, add new questions to existing ones
+                        self.session_manager.add_questions_with_priorities(session_id, filtered_questions)
+                    else:
+                        # For new features, set the questions
+                        self.session_manager.set_questions(session_id, filtered_questions)
+                elif isinstance(new_questions[0], dict):
+                    # Handle case where questions are already in dict format
+                    # Filter out duplicates and already answered questions
                     filtered_questions = self._filter_duplicate_questions(new_questions, existing_questions)
-                    self.logger.info(f"After deduplication: {len(filtered_questions)} questions remaining")
-                    
-                    if filtered_questions and isinstance(filtered_questions[0], str):
-                        self.session_manager.add_questions(session_id, filtered_questions)
-                    elif filtered_questions and isinstance(filtered_questions[0], dict):
+                    if is_followup:
                         # Add only questions that don't already exist
-                        existing_question_texts = {q['question'] for q in existing_questions}
-                        for new_q in filtered_questions:
-                            if new_q.get('question') not in existing_question_texts:
-                                self.session_manager.add_questions(session_id, [new_q['question']])
-            else:
-                # For new features, set the questions as before
-                new_questions = output.get("questions", [])
-                if new_questions and isinstance(new_questions[0], str):
-                    self.session_manager.add_questions(session_id, new_questions)
-                elif new_questions and isinstance(new_questions[0], dict):
-                    self.session_manager.set_questions(session_id, new_questions)
+                        if filtered_questions:
+                            self.session_manager.add_questions_with_priorities(session_id, filtered_questions)
+                    else:
+                        self.session_manager.set_questions(session_id, filtered_questions)
 
-            # Always include all questions with their status and user_answer
-            all_questions = self.session_manager.get_questions(session_id)
+            # Always include all questions with their status and user_answer, ordered by priority
+            all_questions = self.session_manager.get_questions_ordered_by_priority(session_id)
             output["questions"] = all_questions
 
             # Calculate progress
@@ -246,6 +216,142 @@ class POAgent(ConversationalAgent):
         
         return "\n".join(context_parts)
 
+    def _detect_feature_type(self, feature_description: str) -> str:
+        """
+        Detect the feature type using the feature classifier.
+        
+        Args:
+            feature_description (str): The feature description to classify
+            
+        Returns:
+            str: The detected feature type
+        """
+        classification = self.feature_classifier.classify(feature_description)
+        self.logger.info(f"Feature type detected: {classification.primary_type} (confidence: {classification.confidence:.2f})")
+        return classification.primary_type
+    
+    def _prioritize_questions(self, questions: List[str], feature_type: str) -> List[Dict]:
+        """
+        Prioritize questions using the question prioritizer.
+        
+        Args:
+            questions (List[str]): List of questions to prioritize
+            feature_type (str): The feature type for context
+            
+        Returns:
+            List[Dict]: List of questions with priority information
+        """
+        if not questions:
+            return []
+        
+        # Get prioritized questions
+        prioritized_questions = self.question_prioritizer.prioritize_questions(questions, feature_type)
+        
+        # Convert to dictionary format for session manager
+        questions_with_priorities = []
+        for pq in prioritized_questions:
+            questions_with_priorities.append({
+                'question': pq.question,
+                'feature_type': feature_type,
+                'priority': pq.priority.value,
+                'priority_score': pq.score,
+                'priority_reasoning': pq.reasoning
+            })
+        
+        self.logger.info(f"Prioritized {len(questions_with_priorities)} questions for {feature_type} feature")
+        return questions_with_priorities
+    
+    async def _process_questions_unified(self, questions: List[str], session_id: str, feature_type: str) -> List[Dict]:
+        """
+        Process questions using the unified processor for optimal performance.
+        
+        Args:
+            questions (List[str]): Raw questions from LLM
+            session_id (str): Session ID for caching
+            feature_type (str): Detected feature type
+            
+        Returns:
+            List[Dict]: Processed questions with all metadata
+        """
+        # Get conversation history and questions
+        chat_history = self.session_manager.get_chat_history(session_id)
+        all_questions = self.session_manager.get_questions(session_id)
+        answered_questions = [q for q in all_questions if q["status"] in ("answered", "disregarded")]
+        pending_questions = [q for q in all_questions if q["status"] == "pending"]
+        
+        # Convert chat history to the format expected by processor
+        conversation_history = []
+        for message in chat_history:
+            if hasattr(message, 'content'):
+                message_type = 'human' if hasattr(message, '__class__') and 'Human' in message.__class__.__name__ else 'ai'
+                conversation_history.append({
+                    'type': message_type,
+                    'content': str(message.content)
+                })
+        
+        # Process questions using unified processor
+        processed_result = await self.question_processor.process_questions(
+            questions=questions,
+            conversation_history=conversation_history,
+            answered_questions=answered_questions,
+            pending_questions=pending_questions,
+            session_id=session_id
+        )
+        
+        self.logger.info(f"Unified processing completed in {processed_result.processing_time:.3f}s")
+        self.logger.info(f"Generated {processed_result.total_questions} questions ({processed_result.contextual_count} contextual)")
+        
+        return processed_result.questions
+    
+    def _get_enhanced_context(self, session_id: str, feature_type: str) -> Dict:
+        """
+        Get enhanced context for question generation.
+        
+        Args:
+            session_id (str): The session ID
+            feature_type (str): The feature type
+            
+        Returns:
+            Dict: Enhanced context information
+        """
+        # Get conversation history
+        chat_history = self.session_manager.get_chat_history(session_id)
+        
+        # Convert chat history to the format expected by context analyzer
+        conversation_history = []
+        for message in chat_history:
+            if hasattr(message, 'content'):
+                message_type = 'human' if hasattr(message, '__class__') and 'Human' in message.__class__.__name__ else 'ai'
+                conversation_history.append({
+                    'type': message_type,
+                    'content': str(message.content)
+                })
+        
+        # Get answered and pending questions
+        all_questions = self.session_manager.get_questions(session_id)
+        answered_questions = [q for q in all_questions if q["status"] in ("answered", "disregarded")]
+        pending_questions = [q for q in all_questions if q["status"] == "pending"]
+        
+        # Get context insights
+        context_insight = self.context_analyzer.analyze_context(
+            conversation_history, answered_questions, pending_questions, feature_type
+        )
+        
+        # Generate contextual questions
+        contextual_questions = self.context_analyzer.generate_contextual_questions(
+            context_insight, feature_type, [q.get('question', '') for q in pending_questions]
+        )
+        
+        self.logger.info(f"Generated {len(contextual_questions)} contextual questions based on conversation analysis")
+        
+        return {
+            'context_insight': context_insight,
+            'contextual_questions': contextual_questions,
+            'conversation_history': conversation_history,
+            'answered_questions': answered_questions,
+            'pending_questions': pending_questions
+        }
+
     def _extract_title_from_markdown(self, markdown: str, session_id: str) -> str:
         """Extract title from markdown and set it for the session"""
         # Check if session already has a title
@@ -264,81 +370,6 @@ class POAgent(ConversationalAgent):
         """Main processing method - delegates to process_feature."""
         return await self.process_feature(feature, session_id)
 
-    def _is_similar_question(self, new_question: str, existing_questions: List[dict]) -> bool:
-        """
-        Check if a new question is similar to existing questions.
-        
-        Args:
-            new_question (str): The new question to check
-            existing_questions (List[dict]): List of existing questions
-            
-        Returns:
-            bool: True if similar question exists, False otherwise
-        """
-        new_question_lower = new_question.lower()
-        
-        # Keywords to check for similarity
-        similarity_keywords = {
-            '2fa': ['two factor', 'two-factor', '2fa', 'authentication'],
-            'password_reset': ['forgotten password', 'password reset', 'password recovery', 'reset password'],
-            'registration': ['register', 'registration', 'sign up', 'account creation'],
-            'password_complexity': ['password complexity', 'password rules', 'password requirements'],
-            'security': ['security measures', 'security', 'protection', 'lock'],
-            'email': ['email verification', 'email link', 'email code', 'email reset']
-        }
-        
-        for category, keywords in similarity_keywords.items():
-            # Check if new question contains any keywords from this category
-            new_has_keywords = any(keyword in new_question_lower for keyword in keywords)
-            
-            if new_has_keywords:
-                # Check if any existing question has similar keywords
-                for existing_q in existing_questions:
-                    existing_text = existing_q.get('question', '').lower()
-                    existing_has_keywords = any(keyword in existing_text for keyword in keywords)
-                    
-                    if existing_has_keywords:
-                        # Additional check: if both questions are about the same topic
-                        # and the new one is just a variation, consider it similar
-                        if self._are_questions_about_same_topic(new_question_lower, existing_text):
-                            return True
-        
-        return False
-    
-    def _are_questions_about_same_topic(self, question1: str, question2: str) -> bool:
-        """
-        Check if two questions are about the same topic.
-        
-        Args:
-            question1 (str): First question (lowercase)
-            question2 (str): Second question (lowercase)
-            
-        Returns:
-            bool: True if questions are about the same topic
-        """
-        # Extract key topic words from questions
-        def extract_topics(question: str) -> set:
-            topics = set()
-            if '2fa' in question or 'two factor' in question or 'authentication' in question:
-                topics.add('2fa')
-            if 'password' in question and ('reset' in question or 'recovery' in question or 'forgotten' in question):
-                topics.add('password_reset')
-            if 'register' in question or 'account' in question:
-                topics.add('registration')
-            if 'password' in question and ('complexity' in question or 'rules' in question):
-                topics.add('password_complexity')
-            if 'security' in question:
-                topics.add('security')
-            if 'email' in question:
-                topics.add('email')
-            return topics
-        
-        topics1 = extract_topics(question1)
-        topics2 = extract_topics(question2)
-        
-        # If they share any topic, they're about the same subject
-        return bool(topics1 & topics2)
-
     def _filter_duplicate_questions(self, new_questions: List, existing_questions: List[dict]) -> List:
         """
         Filter out questions that are similar to existing ones.
@@ -350,20 +381,4 @@ class POAgent(ConversationalAgent):
         Returns:
             List: Filtered list of new questions without duplicates
         """
-        filtered_questions = []
-        
-        for new_q in new_questions:
-            if isinstance(new_q, str):
-                question_text = new_q
-            elif isinstance(new_q, dict):
-                question_text = new_q.get('question', '')
-            else:
-                continue
-            
-            # Check if this question is similar to existing ones
-            if not self._is_similar_question(question_text, existing_questions):
-                filtered_questions.append(new_q)
-            else:
-                self.logger.info(f"Filtered out duplicate question: {question_text[:50]}...")
-        
-        return filtered_questions 
+        return self.question_deduplicator.filter_duplicate_questions(new_questions, existing_questions) 
