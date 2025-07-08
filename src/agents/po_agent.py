@@ -17,6 +17,9 @@ from src.utils.feature_classifier import FeatureTypeClassifier
 from src.utils.question_prioritizer import QuestionPrioritizer
 from src.utils.context_analyzer import ContextAnalyzer
 from src.utils.question_processor import QuestionProcessor
+from src.utils.intent_classifier import IntentClassifier
+from src.utils.question_matcher import QuestionMatcher
+from src.utils.question_deduplicator import QuestionDeduplicator
 from .base import ConversationalAgent
 
 class POAgent(ConversationalAgent):
@@ -40,6 +43,9 @@ class POAgent(ConversationalAgent):
         self.question_prioritizer = QuestionPrioritizer()
         self.context_analyzer = ContextAnalyzer()
         self.question_processor = QuestionProcessor()
+        self.intent_classifier = IntentClassifier()
+        self.question_matcher = QuestionMatcher()
+        self.question_deduplicator = QuestionDeduplicator()
 
     def _classify_user_intent(self, user_input: str, existing_questions: List[dict]) -> str:
         """
@@ -52,35 +58,7 @@ class POAgent(ConversationalAgent):
         Returns:
             str: 'new_feature', 'question_answer', or 'clarification'
         """
-        # Simple heuristics for intent classification
-        input_lower = user_input.lower()
-        
-        # Check if input looks like an answer to a specific question
-        if existing_questions:
-            # Look for patterns that suggest answering specific questions
-            answer_indicators = [
-                'more than', 'at least', 'minimum', 'maximum', 'between',
-                'yes', 'no', 'not', 'never', 'always', 'only', 'just',
-                'characters', 'uppercase', 'lowercase', 'numbers', 'special',
-                'attempts', 'wait', 'hour', 'minutes', 'seconds',
-                'email', 'password', 'username', 'login', 'register'
-            ]
-            
-            # If input contains specific answer patterns and there are pending questions
-            if any(indicator in input_lower for indicator in answer_indicators):
-                return 'question_answer'
-        
-        # Check if input looks like a new feature description
-        new_feature_indicators = [
-            'i want', 'i need', 'create', 'build', 'implement', 'add',
-            'feature', 'system', 'application', 'website', 'app'
-        ]
-        
-        if any(indicator in input_lower for indicator in new_feature_indicators):
-            return 'new_feature'
-        
-        # Default to question answer if there are existing questions
-        return 'question_answer' if existing_questions else 'new_feature'
+        return self.intent_classifier.classify_intent(user_input, existing_questions)
 
     def _find_matching_question(self, user_input: str, pending_questions: List[dict]) -> dict | None:
         """
@@ -93,33 +71,7 @@ class POAgent(ConversationalAgent):
         Returns:
             dict | None: The matching question or None
         """
-        input_lower = user_input.lower()
-        
-        # Simple keyword matching for now - could be enhanced with semantic similarity
-        for question in pending_questions:
-            question_text = question.get('question', '').lower()
-            
-            # Check for password complexity related keywords
-            if any(keyword in question_text for keyword in ['password', 'complexity', 'rules', 'length', 'characters']):
-                if any(keyword in input_lower for keyword in ['character', 'uppercase', 'lowercase', 'number', 'special', 'minimum', 'maximum']):
-                    return question
-            
-            # Check for security measures
-            if any(keyword in question_text for keyword in ['security', 'two-factor', '2fa', 'captcha', 'authentication']):
-                if any(keyword in input_lower for keyword in ['attempt', 'wait', 'hour', 'lock', 'block']):
-                    return question
-            
-            # Check for registration
-            if any(keyword in question_text for keyword in ['register', 'account', 'existing']):
-                if any(keyword in input_lower for keyword in ['register', 'account', 'email']):
-                    return question
-            
-            # Check for password reset
-            if any(keyword in question_text for keyword in ['forgotten', 'reset', 'recovery']):
-                if any(keyword in input_lower for keyword in ['reset', 'forgot', 'recovery', 'email']):
-                    return question
-        
-        return None
+        return self.question_matcher.find_matching_question(user_input, pending_questions)
 
     async def process_feature(self, feature: str, session_id: str | None = None) -> tuple[str, str, str, str, list, int, int, datetime, datetime]:
         """
@@ -202,27 +154,24 @@ class POAgent(ConversationalAgent):
                 if isinstance(new_questions[0], str):
                     # Use unified processor for optimal performance
                     processed_questions = await self._process_questions_unified(new_questions, session_id, feature_type)
-                    
+                    # Filter out duplicates and already answered questions
+                    filtered_questions = self._filter_duplicate_questions(processed_questions, existing_questions)
                     if is_followup:
                         # For follow-ups, add new questions to existing ones
-                        self.session_manager.add_questions_with_priorities(session_id, processed_questions)
+                        self.session_manager.add_questions_with_priorities(session_id, filtered_questions)
                     else:
                         # For new features, set the questions
-                        self.session_manager.set_questions(session_id, processed_questions)
+                        self.session_manager.set_questions(session_id, filtered_questions)
                 elif isinstance(new_questions[0], dict):
                     # Handle case where questions are already in dict format
+                    # Filter out duplicates and already answered questions
+                    filtered_questions = self._filter_duplicate_questions(new_questions, existing_questions)
                     if is_followup:
                         # Add only questions that don't already exist
-                        existing_question_texts = {q['question'] for q in existing_questions}
-                        questions_to_add = []
-                        for new_q in new_questions:
-                            if new_q.get('question') not in existing_question_texts:
-                                questions_to_add.append(new_q)
-                        
-                        if questions_to_add:
-                            self.session_manager.add_questions_with_priorities(session_id, questions_to_add)
+                        if filtered_questions:
+                            self.session_manager.add_questions_with_priorities(session_id, filtered_questions)
                     else:
-                        self.session_manager.set_questions(session_id, new_questions)
+                        self.session_manager.set_questions(session_id, filtered_questions)
 
             # Always include all questions with their status and user_answer, ordered by priority
             all_questions = self.session_manager.get_questions_ordered_by_priority(session_id)
@@ -421,116 +370,6 @@ class POAgent(ConversationalAgent):
         """Main processing method - delegates to process_feature."""
         return await self.process_feature(feature, session_id)
 
-    def _is_similar_question(self, new_question: str, existing_questions: List[dict]) -> bool:
-        """
-        Check if a new question is similar to existing questions.
-        
-        Args:
-            new_question (str): The new question to check
-            existing_questions (List[dict]): List of existing questions
-            
-        Returns:
-            bool: True if similar question exists, False otherwise
-        """
-        new_question_lower = new_question.lower()
-        
-        # Enhanced keywords to check for similarity with more granular categories
-        similarity_keywords = {
-            '2fa': ['two factor', 'two-factor', '2fa', 'authentication', 'additional authentication'],
-            'password_reset': ['forgotten password', 'password reset', 'password recovery', 'reset password', 'forgot password'],
-            'registration': ['register', 'registration', 'sign up', 'account creation', 'new account'],
-            'password_complexity': [
-                'password complexity', 'password rules', 'password requirements', 'minimum length', 
-                'special characters', 'uppercase', 'lowercase', 'numbers', 'characters', 'password strength'
-            ],
-            'password_attempts': [
-                'wrong password', 'incorrect password', 'failed attempts', 'attempts', 'wrong attempts',
-                'lock account', 'lockout', 'brute force', 'wait', 'hour', 'minutes', 'block'
-            ],
-            'security': ['security measures', 'security', 'protection', 'lock', 'secure'],
-            'email': ['email verification', 'email link', 'email code', 'email reset', 'email'],
-            'user_management': ['user', 'account', 'profile', 'user type', 'role']
-        }
-        
-        for category, keywords in similarity_keywords.items():
-            # Check if new question contains any keywords from this category
-            new_has_keywords = any(keyword in new_question_lower for keyword in keywords)
-            
-            if new_has_keywords:
-                # Check if any existing question has similar keywords
-                for existing_q in existing_questions:
-                    existing_text = existing_q.get('question', '').lower()
-                    existing_has_keywords = any(keyword in existing_text for keyword in keywords)
-                    
-                    if existing_has_keywords:
-                        # Check if the existing question is already answered
-                        if existing_q.get('status') == 'answered':
-                            # If the existing question is answered and covers the same topic,
-                            # the new question is redundant
-                            if self._are_questions_about_same_topic(new_question_lower, existing_text):
-                                return True
-                        else:
-                            # If the existing question is pending, check if they're asking the same thing
-                            if self._are_questions_about_same_topic(new_question_lower, existing_text):
-                                return True
-        
-        return False
-    
-    def _are_questions_about_same_topic(self, question1: str, question2: str) -> bool:
-        """
-        Check if two questions are about the same topic.
-        
-        Args:
-            question1 (str): First question (lowercase)
-            question2 (str): Second question (lowercase)
-            
-        Returns:
-            bool: True if questions are about the same topic
-        """
-        # Extract key topic words from questions with more granular detection
-        def extract_topics(question: str) -> set:
-            topics = set()
-            
-            # Authentication topics
-            if any(word in question for word in ['2fa', 'two factor', 'authentication', 'additional authentication']):
-                topics.add('2fa')
-            
-            # Password reset topics
-            if any(word in question for word in ['password reset', 'forgotten password', 'forgot password', 'password recovery']):
-                topics.add('password_reset')
-            
-            # Registration topics
-            if any(word in question for word in ['register', 'registration', 'sign up', 'account creation']):
-                topics.add('registration')
-            
-            # Password complexity topics
-            if any(word in question for word in ['password complexity', 'password rules', 'password requirements', 'minimum length', 'special characters', 'uppercase', 'lowercase', 'numbers']):
-                topics.add('password_complexity')
-            
-            # Password attempts/security topics
-            if any(word in question for word in ['wrong password', 'incorrect password', 'failed attempts', 'attempts', 'lock account', 'lockout', 'brute force', 'wait', 'hour']):
-                topics.add('password_attempts')
-            
-            # General security topics
-            if 'security' in question:
-                topics.add('security')
-            
-            # Email topics
-            if 'email' in question:
-                topics.add('email')
-            
-            # User management topics
-            if any(word in question for word in ['user', 'account', 'profile', 'role']):
-                topics.add('user_management')
-            
-            return topics
-        
-        topics1 = extract_topics(question1)
-        topics2 = extract_topics(question2)
-        
-        # If they share any topic, they're about the same subject
-        return bool(topics1 & topics2)
-
     def _filter_duplicate_questions(self, new_questions: List, existing_questions: List[dict]) -> List:
         """
         Filter out questions that are similar to existing ones.
@@ -542,48 +381,4 @@ class POAgent(ConversationalAgent):
         Returns:
             List: Filtered list of new questions without duplicates
         """
-        filtered_questions = []
-        
-        for new_q in new_questions:
-            if isinstance(new_q, str):
-                question_text = new_q
-            elif isinstance(new_q, dict):
-                question_text = new_q.get('question', '')
-            else:
-                continue
-            
-            # Check if this question is similar to existing ones
-            if not self._is_similar_question(question_text, existing_questions):
-                # Additional check: ensure the question hasn't been answered in recent user input
-                if not self._is_question_already_answered(question_text, existing_questions):
-                    filtered_questions.append(new_q)
-                else:
-                    self.logger.info(f"Filtered out already answered question: {question_text[:50]}...")
-            else:
-                self.logger.info(f"Filtered out duplicate question: {question_text[:50]}...")
-        
-        return filtered_questions
-    
-    def _is_question_already_answered(self, question_text: str, existing_questions: List[dict]) -> bool:
-        """
-        Check if a question has already been answered by the user.
-        
-        Args:
-            question_text (str): The question to check
-            existing_questions (List[dict]): List of existing questions
-            
-        Returns:
-            bool: True if the question has already been answered
-        """
-        question_lower = question_text.lower()
-        
-        # Check if any answered question covers the same topic
-        for existing_q in existing_questions:
-            if existing_q.get('status') == 'answered':
-                existing_text = existing_q.get('question', '').lower()
-                
-                # If they're about the same topic and the existing one is answered
-                if self._are_questions_about_same_topic(question_lower, existing_text):
-                    return True
-        
-        return False 
+        return self.question_deduplicator.filter_duplicate_questions(new_questions, existing_questions) 
