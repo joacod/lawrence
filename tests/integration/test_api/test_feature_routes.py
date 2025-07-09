@@ -88,6 +88,7 @@ A comprehensive user authentication system.
         assert len(data["data"]["chat"]["questions"]) == 1
         assert data["data"]["feature_overview"]["description"] == "A comprehensive user authentication system."
         assert len(data["data"]["feature_overview"]["acceptance_criteria"]) == 2
+        assert data["data"]["feature_overview"]["progress_percentage"] == 0  # No answered questions in this test
         assert len(data["data"]["tickets"]["backend"]) == 2
         assert len(data["data"]["tickets"]["frontend"]) == 2
     
@@ -157,6 +158,219 @@ A comprehensive user authentication system.
         data = response.json()
         assert data["data"] is None
         assert data["error"]["type"] == "internal_server_error"
+    
+    @pytest.mark.asyncio
+    async def test_process_feature_progress_percentage_calculation(self, test_client, sample_feature_input, mock_agent_service):
+        """Test progress percentage calculation with answered questions."""
+        # Mock successful agent response with answered questions
+        mock_agent_service.process_feature.return_value = AgentResponse(
+            data=AgentSuccessData(
+                session_id="test-session-123",
+                title="User Login System",
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+                response="I'll help you create a user login system",
+                markdown="""# Feature: User Login System
+
+## Description
+A comprehensive user authentication system.
+
+## Acceptance Criteria
+- Users can register with email and password
+- Users can login with valid credentials
+
+## Backend Changes
+- **Title: Implement User Authentication** - Create authentication service with JWT tokens
+
+## Frontend Changes
+- **Title: Create Login Form** - Design responsive login form with validation""",
+                questions=[
+                    {"question": "What authentication method do you prefer?", "status": "answered", "user_answer": "JWT"},
+                    {"question": "Do you need password reset functionality?", "status": "answered", "user_answer": "Yes"},
+                    {"question": "What is your preferred UI framework?", "status": "pending", "user_answer": None}
+                ],
+                answered_questions=2,
+                total_questions=3
+            )
+        )
+        
+        response = test_client.post("/process_feature", json=sample_feature_input.model_dump())
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["error"] is None
+        assert data["data"]["feature_overview"]["progress_percentage"] == 66  # 2/3 * 100 = 66.66... truncated to 66
+        assert data["data"]["chat"]["progress"]["answered_questions"] == 2
+        assert data["data"]["chat"]["progress"]["total_questions"] == 3
+    
+    @pytest.mark.asyncio
+    async def test_process_feature_progress_percentage_complete(self, test_client, sample_feature_input, mock_agent_service):
+        """Test progress percentage calculation when all questions are answered."""
+        # Mock successful agent response with all questions answered
+        mock_agent_service.process_feature.return_value = AgentResponse(
+            data=AgentSuccessData(
+                session_id="test-session-123",
+                title="User Login System",
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+                response="I'll help you create a user login system",
+                markdown="""# Feature: User Login System
+
+## Description
+A comprehensive user authentication system.
+
+## Acceptance Criteria
+- Users can register with email and password
+- Users can login with valid credentials
+
+## Backend Changes
+- **Title: Implement User Authentication** - Create authentication service with JWT tokens
+
+## Frontend Changes
+- **Title: Create Login Form** - Design responsive login form with validation""",
+                questions=[
+                    {"question": "What authentication method do you prefer?", "status": "answered", "user_answer": "JWT"},
+                    {"question": "Do you need password reset functionality?", "status": "answered", "user_answer": "Yes"}
+                ],
+                answered_questions=2,
+                total_questions=2
+            )
+        )
+        
+        response = test_client.post("/process_feature", json=sample_feature_input.model_dump())
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["error"] is None
+        assert data["data"]["feature_overview"]["progress_percentage"] == 100  # 2/2 * 100
+        assert data["data"]["chat"]["progress"]["answered_questions"] == 2
+        assert data["data"]["chat"]["progress"]["total_questions"] == 2
+    
+    @pytest.mark.asyncio
+    async def test_process_feature_progress_percentage_no_questions(self, test_client, sample_feature_input, mock_agent_service):
+        """Test progress percentage calculation when no questions are present."""
+        # Mock successful agent response with no questions
+        mock_agent_service.process_feature.return_value = AgentResponse(
+            data=AgentSuccessData(
+                session_id="test-session-123",
+                title="User Login System",
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+                response="I'll help you create a user login system",
+                markdown="""# Feature: User Login System
+
+## Description
+A comprehensive user authentication system.
+
+## Acceptance Criteria
+- Users can register with email and password
+- Users can login with valid credentials
+
+## Backend Changes
+- **Title: Implement User Authentication** - Create authentication service with JWT tokens
+
+## Frontend Changes
+- **Title: Create Login Form** - Design responsive login form with validation""",
+                questions=[],
+                answered_questions=0,
+                total_questions=0
+            )
+        )
+        
+        response = test_client.post("/process_feature", json=sample_feature_input.model_dump())
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["error"] is None
+        assert data["data"]["feature_overview"]["progress_percentage"] == 0  # 0/0 should default to 0
+        assert data["data"]["chat"]["progress"]["answered_questions"] == 0
+        assert data["data"]["chat"]["progress"]["total_questions"] == 0
+    
+    @pytest.mark.asyncio
+    async def test_process_feature_progress_percentage_default_values(self, test_client, sample_feature_input, mock_agent_service):
+        """Test progress percentage calculation when answered_questions and total_questions use default values (0)."""
+        # Mock successful agent response with default values (0) for answered_questions and total_questions
+        mock_agent_service.process_feature.return_value = AgentResponse(
+            data=AgentSuccessData(
+                session_id="test-session-123",
+                title="User Login System",
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+                response="I'll help you create a user login system",
+                markdown="""# Feature: User Login System
+
+## Description
+A comprehensive user authentication system.
+
+## Acceptance Criteria
+- Users can register with email and password
+- Users can login with valid credentials
+
+## Backend Changes
+- **Title: Implement User Authentication** - Create authentication service with JWT tokens
+
+## Frontend Changes
+- **Title: Create Login Form** - Design responsive login form with validation""",
+                questions=[
+                    {"question": "What authentication method do you prefer?", "status": "pending", "user_answer": None},
+                    {"question": "Do you need password reset functionality?", "status": "pending", "user_answer": None}
+                ]
+                # answered_questions and total_questions will default to 0
+            )
+        )
+        
+        response = test_client.post("/process_feature", json=sample_feature_input.model_dump())
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["error"] is None
+        assert data["data"]["feature_overview"]["progress_percentage"] == 0  # Should default to 0 when total_questions is 0
+        assert data["data"]["chat"]["progress"]["answered_questions"] == 0  # Should default to 0
+        assert data["data"]["chat"]["progress"]["total_questions"] == 0  # Should use the default value of 0 from the model
+    
+    @pytest.mark.asyncio
+    async def test_process_feature_progress_percentage_decimal_rounding(self, test_client, sample_feature_input, mock_agent_service):
+        """Test progress percentage calculation with decimal values that get rounded."""
+        # Mock successful agent response with decimal percentage (1 out of 3 questions = 33.33%)
+        mock_agent_service.process_feature.return_value = AgentResponse(
+            data=AgentSuccessData(
+                session_id="test-session-123",
+                title="User Login System",
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc),
+                response="I'll help you create a user login system",
+                markdown="""# Feature: User Login System
+
+## Description
+A comprehensive user authentication system.
+
+## Acceptance Criteria
+- Users can register with email and password
+- Users can login with valid credentials
+
+## Backend Changes
+- **Title: Implement User Authentication** - Create authentication service with JWT tokens
+
+## Frontend Changes
+- **Title: Create Login Form** - Design responsive login form with validation""",
+                questions=[
+                    {"question": "What authentication method do you prefer?", "status": "answered", "user_answer": "JWT"},
+                    {"question": "Do you need password reset functionality?", "status": "pending", "user_answer": None},
+                    {"question": "What is your preferred UI framework?", "status": "pending", "user_answer": None}
+                ],
+                answered_questions=1,
+                total_questions=3
+            )
+        )
+        
+        response = test_client.post("/process_feature", json=sample_feature_input.model_dump())
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["error"] is None
+        assert data["data"]["feature_overview"]["progress_percentage"] == 33  # 1/3 * 100 = 33.33... rounded to 33
+        assert data["data"]["chat"]["progress"]["answered_questions"] == 1
+        assert data["data"]["chat"]["progress"]["total_questions"] == 3
 
 
 class TestGetSessionEndpoint:
@@ -259,6 +473,7 @@ A comprehensive user authentication system.
         assert len(assistant_message["chat"]["questions"]) == 1
         assert assistant_message["feature_overview"] is not None
         assert assistant_message["feature_overview"]["description"] == "A comprehensive user authentication system."
+        assert assistant_message["feature_overview"]["progress_percentage"] == 0  # No answered questions in this test
         assert assistant_message["tickets"] is not None
         assert len(assistant_message["tickets"]["backend"]) == 1
         assert len(assistant_message["tickets"]["frontend"]) == 1
