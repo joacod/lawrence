@@ -36,7 +36,6 @@
                             "user_answer": null
                         }
                     ],
-                    "suggestions": null,
                     "progress": {
                         "answered_questions": 0,
                         "total_questions": 3
@@ -149,7 +148,6 @@
                             "user_answer": null
                         }
                     ],
-                    "suggestions": null,
                     "progress": {
                         "answered_questions": 0,
                         "total_questions": 5
@@ -269,7 +267,6 @@
                             "user_answer": null
                         }
                     ],
-                    "suggestions": null,
                     "progress": {
                         "answered_questions": 0,
                         "total_questions": 3

@@ -35,7 +35,6 @@ async def process_feature(
             chat_data = ChatData(
                 response=result.data.response,
                 questions=result.data.questions,
-                suggestions=None,
                 progress=ChatProgress(
                     answered_questions=getattr(result.data, 'answered_questions', 0),
                     total_questions=getattr(result.data, 'total_questions', len(result.data.questions))
@@ -46,10 +45,15 @@ async def process_feature(
             markdown_sections = parse_markdown_sections(result.data.markdown)
             
             # Create feature overview from parsed data
+            # Calculate progress percentage based on answered questions
+            answered_questions = getattr(result.data, 'answered_questions', 0)
+            total_questions = getattr(result.data, 'total_questions', len(result.data.questions))
+            progress_percentage = int((answered_questions / total_questions * 100) if total_questions > 0 else 0)
+            
             feature_overview = FeatureOverview(
                 description=markdown_sections.get("description", "Feature description will be implemented in future iterations"),
                 acceptance_criteria=markdown_sections.get("acceptance_criteria", []),
-                progress_percentage=0  # Will be calculated in future iterations
+                progress_percentage=progress_percentage
             )
             
             # Create backend tickets from parsed data

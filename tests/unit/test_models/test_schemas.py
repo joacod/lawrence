@@ -85,14 +85,12 @@ class TestChatData:
                 {"question": "Question 1?", "status": "pending", "user_answer": None},
                 {"question": "Question 2?", "status": "pending", "user_answer": None}
             ],
-            "suggestions": ["Suggestion 1", "Suggestion 2"],
             "progress": ChatProgress(answered_questions=1, total_questions=2)
         }
         chat_data = ChatData(**data)
         
         assert chat_data.response == "This is a test response"
         assert len(chat_data.questions) == 2
-        assert len(chat_data.suggestions) == 2
         assert chat_data.progress.answered_questions == 1
         assert chat_data.progress.total_questions == 2
     
@@ -108,7 +106,6 @@ class TestChatData:
         
         assert chat_data.response == "This is a test response"
         assert len(chat_data.questions) == 1
-        assert chat_data.suggestions is None
         assert chat_data.progress is None
     
     def test_chat_data_empty_questions(self):

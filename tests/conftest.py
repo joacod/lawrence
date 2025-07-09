@@ -137,7 +137,6 @@ def sample_chat_data():
             QuestionData(question="Question 1?", status="pending", user_answer=None),
             QuestionData(question="Question 2?", status="pending", user_answer=None)
         ],
-        suggestions=None,
         progress=ChatProgress(
             answered_questions=0,
             total_questions=2
