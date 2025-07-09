@@ -52,7 +52,6 @@ class ChatData(BaseModel):
     """Structure for chat section in response"""
     response: str
     questions: List[QuestionData]
-    suggestions: Optional[List[str]] = None
     progress: Optional[ChatProgress] = None
 
 class FeatureOverview(BaseModel):

@@ -35,7 +35,6 @@ async def process_feature(
             chat_data = ChatData(
                 response=result.data.response,
                 questions=result.data.questions,
-                suggestions=None,
                 progress=ChatProgress(
                     answered_questions=getattr(result.data, 'answered_questions', 0),
                     total_questions=getattr(result.data, 'total_questions', len(result.data.questions))

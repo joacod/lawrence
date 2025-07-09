@@ -67,7 +67,6 @@ async def get_session(session_id: str, session_service: SessionService = Depends
                 chat_data = ChatData(
                     response=response,
                     questions=questions,
-                    suggestions=None,
                     progress=ChatProgress(
                         answered_questions=0,
                         total_questions=len(questions)
