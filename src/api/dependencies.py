@@ -5,6 +5,7 @@ Centralizes all service dependencies for better maintainability.
 from src.services.agent_service import AgentService
 from src.services.session_service import SessionService
 from src.services.health_service import HealthService
+from src.services.export_service import ExportService
 
 
 def get_agent_service() -> AgentService:
@@ -19,4 +20,9 @@ def get_session_service() -> SessionService:
 
 def get_health_service() -> HealthService:
     """Dependency to get health service instance."""
-    return HealthService() 
+    return HealthService()
+
+
+def get_export_service() -> ExportService:
+    """Dependency to get export service instance."""
+    return ExportService() 
