@@ -65,32 +65,24 @@ class ExportService:
             
             # Generate export content
             title = session_data.get("title", "Untitled Feature")
-            created_at = session_data.get("created_at")
-            updated_at = session_data.get("updated_at")
             
             # Generate filename
-            filename = get_export_filename(title, export_format, session_id)
+            filename = get_export_filename(title, export_format)
             
             if export_format == "pdf":
                 content = generate_pdf_export(
-                    session_id=session_id,
                     title=title,
                     feature_overview=feature_overview,
-                    tickets=tickets,
-                    created_at=created_at,
-                    updated_at=updated_at
+                    tickets=tickets
                 )
                 # Encode PDF content as base64 for JSON response
                 content_str = base64.b64encode(content).decode('utf-8')
                 content_type = "application/pdf"
             else:
                 content_str = generate_markdown_export(
-                    session_id=session_id,
                     title=title,
                     feature_overview=feature_overview,
-                    tickets=tickets,
-                    created_at=created_at,
-                    updated_at=updated_at
+                    tickets=tickets
                 )
                 content_type = "text/markdown"
             

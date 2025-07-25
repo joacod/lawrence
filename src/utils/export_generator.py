@@ -17,23 +17,17 @@ from src.models.core_models import FeatureOverview, TicketsData, Ticket
 
 
 def generate_markdown_export(
-    session_id: str,
     title: str,
     feature_overview: FeatureOverview,
-    tickets: TicketsData,
-    created_at: Optional[datetime] = None,
-    updated_at: Optional[datetime] = None
+    tickets: TicketsData
 ) -> str:
     """
     Generate a formatted Markdown export from feature data.
     
     Args:
-        session_id: The session identifier
         title: Feature title
         feature_overview: Feature overview data
         tickets: Backend and frontend tickets
-        created_at: When the feature was created
-        updated_at: When the feature was last updated
     
     Returns:
         str: Formatted Markdown content
@@ -42,16 +36,6 @@ def generate_markdown_export(
     
     # Header
     markdown_content.append(f"# {title}")
-    markdown_content.append("")
-    
-    # Metadata
-    markdown_content.append("## Session Information")
-    markdown_content.append(f"- **Session ID:** {session_id}")
-    if created_at:
-        markdown_content.append(f"- **Created:** {created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}")
-    if updated_at:
-        markdown_content.append(f"- **Last Updated:** {updated_at.strftime('%Y-%m-%d %H:%M:%S UTC')}")
-    markdown_content.append(f"- **Progress:** {feature_overview.progress_percentage}%")
     markdown_content.append("")
     
     # Description
@@ -114,23 +98,17 @@ def generate_markdown_export(
 
 
 def generate_pdf_export(
-    session_id: str,
     title: str,
     feature_overview: FeatureOverview,
-    tickets: TicketsData,
-    created_at: Optional[datetime] = None,
-    updated_at: Optional[datetime] = None
+    tickets: TicketsData
 ) -> bytes:
     """
     Generate a PDF export from feature data.
     
     Args:
-        session_id: The session identifier
         title: Feature title
         feature_overview: Feature overview data
         tickets: Backend and frontend tickets
-        created_at: When the feature was created
-        updated_at: When the feature was last updated
     
     Returns:
         bytes: PDF content as bytes
@@ -168,33 +146,6 @@ def generate_pdf_export(
     
     # Title
     story.append(Paragraph(title, title_style))
-    story.append(Spacer(1, 20))
-    
-    # Session Information
-    story.append(Paragraph("Session Information", heading_style))
-    info_data = [
-        ["Session ID:", session_id],
-        ["Progress:", f"{feature_overview.progress_percentage}%"]
-    ]
-    if created_at:
-        info_data.append(["Created:", created_at.strftime('%Y-%m-%d %H:%M:%S UTC')])
-    if updated_at:
-        info_data.append(["Last Updated:", updated_at.strftime('%Y-%m-%d %H:%M:%S UTC')])
-    
-    info_table = Table(info_data, colWidths=[2*inch, 4*inch])
-    info_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#ecf0f1')),
-        ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#2c3e50')),
-        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 10),
-        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#bdc3c7')),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-    ]))
-    story.append(info_table)
     story.append(Spacer(1, 20))
     
     # Description
@@ -267,14 +218,13 @@ def generate_pdf_export(
     return buffer.getvalue()
 
 
-def get_export_filename(title: str, export_format: str, session_id: str) -> str:
+def get_export_filename(title: str, export_format: str) -> str:
     """
     Generate a filename for the export based on title and format.
     
     Args:
         title: Feature title
         export_format: Export format ("markdown" or "pdf")
-        session_id: Session identifier
     
     Returns:
         str: Formatted filename
@@ -291,6 +241,6 @@ def get_export_filename(title: str, export_format: str, session_id: str) -> str:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     if export_format == "pdf":
-        return f"{safe_title}_{session_id[:8]}_{timestamp}.pdf"
+        return f"{safe_title}_{timestamp}.pdf"
     else:
-        return f"{safe_title}_{session_id[:8]}_{timestamp}.md" 
+        return f"{safe_title}_{timestamp}.md" 
