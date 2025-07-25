@@ -19,6 +19,12 @@ This project provides a REST API that:
   - Frontend tickets needed
 - Endpoint to export the complete feature overview documentation as Markdown or PDF.
 
+## Lawrence Frontend
+
+The frontend is a separate project that provides a user interface for interacting with the Lawrence backend. It allows users to submit feature descriptions, view generated questions, and manage feature specifications.
+
+You can find the frontend project here: [Lawrence UI](https://github.com/joacod/lawrence-ui)
+
 ## Prerequisites
 
 - **Python**: 3.12
