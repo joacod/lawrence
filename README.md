@@ -1,19 +1,30 @@
-# Lawrence MVP
+# Lawrence Backend
 
-Lawrence is a minimal viable product (MVP) designed to automate and streamline the workflow of software product owners. It uses AI to clarify feature requirements and generate documentation. 
+Lawrence is a co‑pilot that automates the _requirements‑engineering_ workflow for software Product Owners and managers.
+
+It uses AI to transform vague feature ideas into well‑structured specifications, and generates helpful documentation.
 
 ## Project Overview
 
-The Lawrence MVP provides a REST API that:
+This project provides a REST API that:
+
 - Accepts a software feature description.
 - Generates clarifying questions if the feature is vague.
-- Updates a Markdown document with feature details and pending questions.
+- Updates the feature details and pending questions.
 - Maintains conversation context for iterative refinement.
+- Generates a feature overview including:
+  - Feature description
+  - Acceptance criteria
+  - Backend tickets needed
+  - Frontend tickets needed
+- Endpoint to export the complete feature overview documentation as Markdown or PDF.
 
 ## Prerequisites
 
 - **Python**: 3.12
-- **Ollama**: Installed and running with the `llama3:latest` model.
+- **Ollama**: Installed and running with the follwing models:
+  - `mistral:latest` (Advanced 7B model with enhanced reasoning)
+  - `phi3:latest` (Lightweight 3B fast model for quick responses)
 
 ## Setup Instructions
 
@@ -117,5 +128,6 @@ PYTHONPATH=. pytest tests/ -v --cov=src --cov-report=term-missing --cov-report=h
 ### Coverage Reports
 
 After running tests, coverage reports are generated in:
+
 - `htmlcov/`: HTML coverage report
 - `coverage.xml`: XML coverage report for CI tools
