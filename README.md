@@ -1,4 +1,15 @@
+<div align="center">
+
 # Lawrence Backend
+
+[![GitHub](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/joacod/lawrence/blob/main/LICENSE)
+
+[![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)](https://www.python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+
+</div>
+
+## Introduction
 
 Lawrence is a co‑pilot that automates the _requirements‑engineering_ workflow for software Product Owners and managers.
 
