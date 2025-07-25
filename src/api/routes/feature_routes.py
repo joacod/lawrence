@@ -2,17 +2,21 @@
 Feature processing routes for handling AI-powered feature requests.
 """
 from fastapi import APIRouter, Depends
+from fastapi.responses import Response
 from src.models.core_models import (
     FeatureInput, AgentOutput, AgentOutputData, 
-    ChatData, ChatProgress, FeatureOverview, TicketsData
+    ChatData, ChatProgress, FeatureOverview, TicketsData,
+    ExportRequest, ExportResponse
 )
 from src.services.agent_service import AgentService
-from src.api.dependencies import get_agent_service
+from src.services.export_service import ExportService
+from src.api.dependencies import get_agent_service, get_export_service
 from src.utils.parsers.markdown_parser import parse_markdown_sections
 from src.utils.api.error_handlers import (
     create_error_response, create_service_unavailable_response
 )
 from src.utils.api.response_helpers import create_tickets_from_changes
+import base64
 
 router = APIRouter(tags=["features"])
 
@@ -91,4 +95,35 @@ async def process_feature(
         return create_service_unavailable_response(
             response_model=AgentOutput,
             message="An internal error occurred"
-        ) 
+        )
+
+
+@router.post("/export_feature", response_model=ExportResponse)
+async def export_feature(
+    request: ExportRequest,
+    export_service: ExportService = Depends(get_export_service)
+):
+    """Export feature data to Markdown or PDF format"""
+    try:
+        export_data, error = await export_service.export_feature(
+            session_id=request.session_id,
+            export_format=request.format
+        )
+        
+        if error:
+            return create_error_response(
+                response_model=ExportResponse,
+                error_type=error.type,
+                error_message=error.message
+            )
+        
+        return ExportResponse(
+            data=export_data,
+            error=None
+        )
+        
+    except Exception as e:
+        return create_service_unavailable_response(
+            response_model=ExportResponse,
+            message="An internal error occurred during export"
+        )

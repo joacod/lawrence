@@ -30,6 +30,11 @@ class FeatureInput(BaseModel):
     session_id: Optional[str] = None
     feature: str
 
+class ExportRequest(BaseModel):
+    """Input structure for export requests"""
+    session_id: str
+    format: Literal["markdown", "pdf"] = "markdown"
+
 # =============================================================================
 # ERROR MODELS
 # =============================================================================
@@ -129,6 +134,12 @@ class ClearSessionData(BaseModel):
     """Structure for clear session response data"""
     message: str
 
+class ExportData(BaseModel):
+    """Structure for export response data"""
+    content: str
+    filename: str
+    content_type: str
+
 # =============================================================================
 # GENERIC API RESPONSE WRAPPER
 # =============================================================================
@@ -166,4 +177,8 @@ class AgentOutput(ApiResponse[AgentOutputData]):
 
 class ClearSessionResponse(ApiResponse[ClearSessionData]):
     """Response structure for clear session endpoint"""
+    pass
+
+class ExportResponse(ApiResponse[ExportData]):
+    """Response structure for export endpoint"""
     pass 
