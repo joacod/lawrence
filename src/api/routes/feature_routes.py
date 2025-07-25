@@ -98,7 +98,7 @@ async def process_feature(
         )
 
 
-@router.post("/export_feature", response_model=ExportResponse)
+@router.post("/export_feature")
 async def export_feature(
     request: ExportRequest,
     export_service: ExportService = Depends(get_export_service)
@@ -117,10 +117,26 @@ async def export_feature(
                 error_message=error.message
             )
         
-        return ExportResponse(
-            data=export_data,
-            error=None
-        )
+        # Return the raw file content directly with appropriate headers
+        if request.format == "pdf":
+            # Decode base64 content for PDF
+            pdf_content = base64.b64decode(export_data.content)
+            return Response(
+                content=pdf_content,
+                media_type="application/pdf",
+                headers={
+                    "Content-Disposition": f"attachment; filename={export_data.filename}"
+                }
+            )
+        else:
+            # Return raw markdown content
+            return Response(
+                content=export_data.content,
+                media_type="text/markdown",
+                headers={
+                    "Content-Disposition": f"attachment; filename={export_data.filename}"
+                }
+            )
         
     except Exception as e:
         return create_service_unavailable_response(
