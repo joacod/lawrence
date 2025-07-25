@@ -68,6 +68,7 @@ class ExportService:
             
             # Generate filename
             filename = get_export_filename(title, export_format)
+            logger.info(f"Generated filename: '{filename}'")
             
             if export_format == "pdf":
                 content = generate_pdf_export(

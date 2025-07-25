@@ -227,20 +227,32 @@ def get_export_filename(title: str, export_format: str) -> str:
         export_format: Export format ("markdown" or "pdf")
     
     Returns:
-        str: Formatted filename
+        str: Formatted filename with title in kebab-case (words separated by hyphens)
     """
-    # Clean title for filename
-    safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()
-    safe_title = safe_title.replace(' ', '_')
+    
+    # Clean title and convert to kebab-case
+    safe_title = "".join(c.lower() for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()
+    
+    safe_title = safe_title.replace(' ', '-').replace('_', '-')
+    
+    # Remove any consecutive hyphens
+    while '--' in safe_title:
+        safe_title = safe_title.replace('--', '-')
     
     # Truncate if too long
     if len(safe_title) > 50:
         safe_title = safe_title[:47] + "..."
     
+    # Safety check: if title becomes empty after filtering, use default
+    if not safe_title:
+        safe_title = "feature-export"
+    
     # Add timestamp
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
     if export_format == "pdf":
-        return f"{safe_title}_{timestamp}.pdf"
+        filename = f"{safe_title}_{timestamp}.pdf"
     else:
-        return f"{safe_title}_{timestamp}.md" 
+        filename = f"{safe_title}_{timestamp}.md"
+    
+    return filename 
