@@ -137,3 +137,11 @@ After running tests, coverage reports are generated in:
 
 - `htmlcov/`: HTML coverage report
 - `coverage.xml`: XML coverage report for CI tools
+
+## ☕️ Did you like the project?
+
+You can collaborate with me giving a star ⭐️ to the project or
+
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/joacod)
+
+Thanks! 😃
