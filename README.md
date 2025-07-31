@@ -16,8 +16,8 @@ Lawrence is a co‑pilot that automates the _requirements‑engineering_ workfl
 It uses AI to transform vague feature ideas into well‑structured specifications, and generates helpful documentation.
 
 <p align="center">
-  <img width="40%" src="https://github.com/joacod/lawrence/blob/main/readme-pics/app-example.webp" alt="App Thumbnail">
-  <img width="40%" src="https://github.com/joacod/lawrence/blob/main/readme-pics/feature-overview.webp" alt="Feature Overview Thumbnail">
+  <img width="45%" src="https://github.com/joacod/lawrence/blob/main/readme-pics/app-example.webp" alt="App Thumbnail">
+  <img width="45%" src="https://github.com/joacod/lawrence/blob/main/readme-pics/feature-overview.webp" alt="Feature Overview Thumbnail">
 </p>
 
 ## Project Overview
